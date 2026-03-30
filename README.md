@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://via.placeholder.com/120x120.png?text=GraphCut" alt="GraphCut Logo" width="120" />
+  <img src="assets/graphcut-ui-screenshot.png" alt="GraphCut Web UI Screenshot" width="800" />
   
   # GraphCut 🎬✂️
 
