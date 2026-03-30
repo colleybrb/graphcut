@@ -2,8 +2,8 @@
 
 import pytest
 from pathlib import Path
-from quickcut.models import CaptionStyle, Transcript, TranscriptWord, TranscriptSegment
-from quickcut.caption_generator import CaptionGenerator
+from graphcut.models import CaptionStyle, Transcript, TranscriptWord, TranscriptSegment
+from graphcut.caption_generator import CaptionGenerator
 
 
 @pytest.fixture
@@ -13,10 +13,10 @@ def mock_transcript():
     w2 = TranscriptWord(word="world.", start=0.5, end=1.0)
     w3 = TranscriptWord(word="This", start=2.0, end=2.4)
     w4 = TranscriptWord(word="is", start=2.5, end=2.8)
-    w5 = TranscriptWord(word="QuickCut.", start=2.9, end=3.5)
+    w5 = TranscriptWord(word="GraphCut.", start=2.9, end=3.5)
     
     seg1 = TranscriptSegment(text="Hello world.", start=0.0, end=1.0, words=[w1, w2])
-    seg2 = TranscriptSegment(text="This is QuickCut.", start=2.0, end=3.5, words=[w3, w4, w5])
+    seg2 = TranscriptSegment(text="This is GraphCut.", start=2.0, end=3.5, words=[w3, w4, w5])
     
     return Transcript(segments=[seg1, seg2], source_id="test_01", duration=4.0)
 
@@ -64,4 +64,4 @@ def test_caption_word_chunking(mock_transcript: Transcript):
     
     assert [w.word for w in chunks[0]] == ["Hello", "world."]
     assert [w.word for w in chunks[1]] == ["This", "is"]
-    assert [w.word for w in chunks[2]] == ["QuickCut."]
+    assert [w.word for w in chunks[2]] == ["GraphCut."]

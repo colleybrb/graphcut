@@ -1,4 +1,4 @@
-"""Shared fixtures for QuickCut tests."""
+"""Shared fixtures for GraphCut tests."""
 
 from pathlib import Path
 

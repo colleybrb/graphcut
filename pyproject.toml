@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "quickcut"
+name = "graphcut"
 version = "0.1.0"
 description = "Local-first video editor — merge clips, record narration, add captions, export polished videos"
 readme = "README.md"
@@ -34,10 +34,10 @@ all = [
 ]
 
 [project.scripts]
-quickcut = "quickcut.cli:cli"
+graphcut = "graphcut.cli:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/quickcut"]
+packages = ["src/graphcut"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

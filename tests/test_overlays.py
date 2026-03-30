@@ -1,9 +1,9 @@
 """Unit tests for the overlay compositor logic."""
 
 import pytest
-from quickcut.models import WebcamOverlay
-from quickcut.filtergraph import FilterGraph
-from quickcut.overlay_compositor import OverlayCompositor
+from graphcut.models import WebcamOverlay
+from graphcut.filtergraph import FilterGraph
+from graphcut.overlay_compositor import OverlayCompositor
 
 
 def test_webcam_positioning():

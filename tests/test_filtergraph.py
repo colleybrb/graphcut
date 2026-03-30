@@ -1,8 +1,8 @@
-"""Unit tests for the QuickCut FFmpeg FilterGraph builder."""
+"""Unit tests for the GraphCut FFmpeg FilterGraph builder."""
 
 from pathlib import Path
 
-from quickcut.filtergraph import FilterGraph, FilterNode
+from graphcut.filtergraph import FilterGraph, FilterNode
 
 
 def test_trim_generates_valid_filter():

@@ -1,8 +1,8 @@
-"""Unit tests for QuickCut Pydantic models."""
+"""Unit tests for GraphCut Pydantic models."""
 
 from pathlib import Path
 
-from quickcut.models import ClipRef, ExportPreset, MediaInfo, ProjectManifest
+from graphcut.models import ClipRef, ExportPreset, MediaInfo, ProjectManifest
 
 
 def test_media_info_creation():

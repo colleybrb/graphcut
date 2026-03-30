@@ -1,6 +1,6 @@
 """Unit tests for media prober and FFmpeg executor."""
 
-from quickcut.ffmpeg_executor import FFmpegExecutor
+from graphcut.ffmpeg_executor import FFmpegExecutor
 
 
 def test_ffmpeg_executor_init():

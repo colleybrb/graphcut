@@ -1,8 +1,8 @@
 """Unit tests for the audio mixer and filtergraph components."""
 
-from quickcut.models import AudioMix
-from quickcut.audio_mixer import AudioMixer
-from quickcut.filtergraph import FilterGraph
+from graphcut.models import AudioMix
+from graphcut.audio_mixer import AudioMixer
+from graphcut.filtergraph import FilterGraph
 
 
 def test_audio_mixer_builds_graph():

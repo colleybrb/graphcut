@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphCut Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/editor.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
+            <h1>GraphCut</h1>
+        </div>
+        <div class="header-controls">
+            <span id="save-status">All changes saved</span>
+        </div>
+    </header>
+
+    <main class="editor-grid">
+        <!-- Left Sidebar: Media Management -->
+        <aside class="left-panel">
+            <div class="panel-section source-panel">
+                <div class="section-header">
+                    <h2>Sources</h2>
+                    <button class="btn btn-icon btn-sm" id="btn-add-source" title="Add Source">+</button>
+                </div>
+                <div class="source-list" id="source-list">
+                    <!-- Source items injected here -->
+                </div>
+            </div>
+            
+            <div class="panel-section clip-panel">
+                <div class="section-header">
+                    <h2>Timeline (Clips)</h2>
+                </div>
+                <div class="clip-list" id="clip-list">
+                    <!-- Clip timeline injected here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center: Primary Interaction Surface -->
+        <section class="center-panel">
+            <div class="preview-panel" id="preview-container">
+                <div class="placeholder-preview">
+                    <span>No Preview Available</span>
+                    <button class="btn btn-primary mt-sm" id="btn-render-preview">Render Preview</button>
+                </div>
+                <!-- <video> injected when preview rendered -->
+            </div>
+            
+            <div class="transcript-panel">
+                <div class="panel-toolbar">
+                    <h2>Transcript Editor</h2>
+                    <div class="toolbar-actions">
+                        <button class="btn btn-sm btn-outline" id="btn-clear-cuts">Clear Cuts</button>
+                        <button class="btn btn-sm btn-primary" id="btn-apply-cuts">Apply Cuts</button>
+                    </div>
+                </div>
+                <div class="transcript-content" id="transcript-content">
+                    <div class="empty-state">Select a clip or run transcription to edit text.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Sidebar: Configs & Export -->
+        <aside class="right-panel">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="audio">Audio</button>
+                <button class="tab-btn" data-tab="overlays">Overlays</button>
+                <button class="tab-btn" data-tab="export">Export</button>
+            </div>
+            
+            <div class="tab-content active" id="tab-audio">
+                <!-- Audio settings injected here -->
+            </div>
+            
+            <div class="tab-content" id="tab-overlays">
+                <div class="form-group">
+                    <label>Webcam Source</label>
+                    <select id="webcam-source-select" class="form-control">
+                        <option value="">None</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Position</label>
+                    <select id="webcam-position" class="form-control">
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="bottom-left">Bottom Left</option>
+                        <option value="top-right">Top Right</option>
+                        <option value="top-left">Top Left</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Scale factor</label>
+                    <input type="range" id="webcam-scale" min="0.1" max="0.5" step="0.05" value="0.25">
+                </div>
+            </div>
+            
+            <div class="tab-content" id="tab-export">
+                <!-- Export controls injected here -->
+            </div>
+        </aside>
+    </main>
+
+    <footer class="app-footer" id="app-footer">
+        <div class="status-bar">
+            Ready
+        </div>
+        <div class="progress-container" style="display: none;" id="global-progress">
+            <div class="progress-text" id="progress-label">Rendering... 0%</div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-eta" id="progress-eta">ETA: --:--</div>
+        </div>
+    </footer>
+
+    <!-- Modules -->
+    <script type="module" src="/js/api.js"></script>
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>

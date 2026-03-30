@@ -1,9 +1,9 @@
 """Unit tests for the export logic."""
 
 import pytest
-from quickcut.exporter import Exporter
-from quickcut.models import ExportPreset
-from quickcut.ffmpeg_executor import FFmpegExecutor
+from graphcut.exporter import Exporter
+from graphcut.models import ExportPreset
+from graphcut.ffmpeg_executor import FFmpegExecutor
 
 def test_letterbox_dimensions():
     """Verify 16:9 content letterboxed to 1:1 has correct padding logic."""

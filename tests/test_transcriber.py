@@ -1,7 +1,7 @@
 """Unit tests for transcription models and transcript editing."""
 
-from quickcut.models import Transcript, TranscriptSegment, TranscriptWord
-from quickcut.transcript_editor import TranscriptEditor
+from graphcut.models import Transcript, TranscriptSegment, TranscriptWord
+from graphcut.transcript_editor import TranscriptEditor
 
 
 def _make_transcript() -> Transcript:
