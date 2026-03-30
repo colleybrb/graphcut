@@ -182,5 +182,9 @@ If you run `graphcut` and your terminal says it is not recognized, check the fol
 2. **Python PATH Issues:** Depending on your OS, `pip install` might place executables in a folder that isn't on your system's `$PATH` (like `~/.local/bin` on Linux/Mac, or `C:\Users\Name\AppData\Local\Programs\Python\Scripts` on Windows). You'll need to add that directory to your PATH variable.
 3. **Alternative Execution:** If you can't get your path configured, you can always execute the python module directly from within the cloned directory by running:
    ```bash
+   # Initialize instead of 'graphcut new-project'
    python -m graphcut.cli new-project my-video
+   
+   # Boot the GUI instead of 'graphcut serve'
+   python -m graphcut.cli serve my-video
    ```
