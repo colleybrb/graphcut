@@ -75,13 +75,18 @@ class FFmpegExecutor:
                 import static_ffmpeg
                 import requests
                 import urllib3
+                import urllib.request
                 
-                # Corporate MITM proxy bypass: Force requests to ignore SSL verification just for this initial download
+                sys_proxies = urllib.request.getproxies()
+
+                # Corporate Proxy Bypass: Inject Windows Registry web proxies and disable strict MITM SSL
                 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
                 original_get = requests.get
                 
                 def unverified_get(*args, **kwargs):
                     kwargs['verify'] = False
+                    if 'proxies' not in kwargs and sys_proxies:
+                        kwargs['proxies'] = sys_proxies
                     return original_get(*args, **kwargs)
                 
                 requests.get = unverified_get
