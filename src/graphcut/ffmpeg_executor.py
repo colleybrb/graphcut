@@ -60,9 +60,18 @@ class FFmpegExecutor:
     def _find_binary(name: str) -> Path:
         """Locate a binary on the system PATH."""
         location = shutil.which(name)
+        
+        # Fallback for macOS where environments (IDEs/services) often strip Homebrew PATH
+        if location is None:
+            for fallback_dir in ["/opt/homebrew/bin", "/usr/local/bin"]:
+                fallback_path = Path(fallback_dir) / name
+                if fallback_path.exists() and fallback_path.is_file():
+                    location = str(fallback_path)
+                    break
+
         if location is None:
             raise FFmpegError(
-                f"'{name}' not found on PATH. Install FFmpeg: https://ffmpeg.org/download.html"
+                f"'{name}' not found on PATH or common Homebrew directories. Install FFmpeg: https://ffmpeg.org/download.html"
             )
         return Path(location)
 
