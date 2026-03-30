@@ -23,6 +23,19 @@ def create_app(project_dir: Path | None = None) -> FastAPI:
     # Attach the active project directory to the app state so endpoints can access it 
     app.state.project_dir = project_dir
 
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+    from graphcut.ffmpeg_executor import FFmpegError
+
+    @app.exception_handler(FFmpegError)
+    async def ffmpeg_exception_handler(request: Request, exc: FFmpegError):
+        """Catch underlying FFmpeg binary errors gracefully for the UI."""
+        logger.error(f"FFmpeg Execution Error: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(exc)},
+        )
+
     from graphcut.api import router
     app.include_router(router)
 
