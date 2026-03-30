@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quickcut"
+version = "0.1.0"
+description = "Local-first video editor — merge clips, record narration, add captions, export polished videos"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Dan" },
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+transcription = ["faster-whisper>=1.0"]
+scene = ["scenedetect[opencv]>=0.6.7"]
+audio = ["ffmpeg-normalize>=1.27"]
+dev = ["pytest>=7.0", "pytest-asyncio"]
+all = [
+    "faster-whisper>=1.0",
+    "scenedetect[opencv]>=0.6.7",
+    "ffmpeg-normalize>=1.27",
+    "pytest>=7.0",
+    "pytest-asyncio",
+]
+
+[project.scripts]
+quickcut = "quickcut.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quickcut"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
