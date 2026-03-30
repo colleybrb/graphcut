@@ -1,37 +1,84 @@
-# GraphCut — Local-First Video Automation Editor
+<div align="center">
+  <img src="https://via.placeholder.com/120x120.png?text=GraphCut" alt="GraphCut Logo" width="120" />
+  
+  # GraphCut 🎬✂️
 
-GraphCut is a local-first, privacy-respecting video editor aimed at solo creators who want the speed of automation with the power of Python. Built entirely around FFmpeg filtergraphs, it effortlessly merges multiple clips, overlays webcams, mixes audio, syncs transcriptions, and generates burn-in captions natively without waiting for cloud processing.
+  **The Local-First, Automation-Powered Video Editor for Solo Creators**
+  
+  <p>
+    <a href="https://github.com/colleybrb/graphcut/stargazers"><img src="https://img.shields.io/github/stars/colleybrb/graphcut?style=social" alt="Stars" /></a>
+    <a href="https://github.com/colleybrb/graphcut/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Fair%20Source-blue.svg" alt="License: Fair Source" /></a>
+    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/FFmpeg-Backend-green.svg" alt="Powered by FFmpeg" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Local-First-success.svg" alt="Local First" /></a>
+  </p>
+</div>
 
-## Philosophy
-* **Local First:** All editing happens offline; no assets or transcripts are sent to a cloud endpoint.
-* **Code as Editor:** There are no proprietary bloated binary project formats—project manifests are standard YAML that drives FFmpeg filtergraphs.
-* **Automation Ready:** Every GUI/CLI action translates directly to programmable rendering functions, easily integrating into bigger automation suites.
-* **Hardware Accelerated:** Automatically detects CPU vs. NVENC (NVIDIA) vs. VideoToolbox (Mac) and uses the best available native hardware acceleration.
+---
 
-## Install
+**GraphCut** is a blistering-fast, privacy-respecting video editor aimed at solo creators who want the speed of automation with the raw power of Python and FFmpeg. 
 
-Requires Python 3.11+ and `ffmpeg` / `ffprobe` installed on your local `PATH`.
+Tired of waiting for cloud processing? Frustrated by bloated timelines for simple tasks? GraphCut effortlessly merges multiple clips, overlays webcams, mixes audio, syncs offline AI transcriptions, and generates burn-in captions natively on your own machine. 
+
+## ✨ Why GraphCut?
+
+* 🔒 **100% Local-First:** All editing, rendering, and AI transcription happens offline. No media or transcripts are ever sent to a cloud endpoint.
+* ⚡ **Hardware Accelerated:** Automatically detects CPU vs. NVENC (NVIDIA CUDA) vs. VideoToolbox (Mac) and uses the best available native hardware acceleration to slice render times. 
+* 🧠 **AI Transcription Built-in:** Features local Whisper AI integrations for hyper-fast, word-accurate transcription and caption burn-in out of the box.
+* 💻 **Code as the Editor:** No proprietary, corruptible binary project formats. Your project manifest is a standard, human-readable YAML file that statically drives FFmpeg filtergraphs.
+* 🚀 **Automation Ready:** Every single GUI or CLI action translates directly to programmable backend rendering functions. Build your own mass-rendering loops or integrate with your existing automation suites.
+
+## 📸 Interactive Web GUI
+
+GraphCut isn't just a CLI script. It features a full, decoupled native Web UI designed to edit video from the browser without the lag.
+
+> *Edit transcripts like a text document to automatically cut the underlying video! Manage scenes, tweak audio mixing, apply transition overlays, and stream native rendering previews — all powered by a FastAPI backend.*
+
+## 🛠️ Installation
+
+**Prerequisites:** You must have Python 3.11+ and `ffmpeg` / `ffprobe` installed on your system's `PATH`.
 
 ```bash
-# Minimal install
+# Clone the repository
+git clone https://github.com/colleybrb/graphcut.git
+cd graphcut
+
+# Minimal install (Core FFmpeg bindings)
 pip install -e .
 
-# Full suite install (incl. local Whisper transcription and scene detection)
+# Full suite install (Includes Local AI Whisper transcription & Scene Detection)
 pip install -e ".[all]"
 ```
 
-## Quick Start
+## 🚀 Quick Start
+
+Creating a polished, captioned video takes just a few commands.
 
 ```bash
-# Initialize a new video project directory
-graphcut new-project my-video
+# 1. Initialize a new video project directory
+graphcut new-project my-awesome-video
 
-# Add media to the project
-graphcut add-source my-video clip1.mp4 audiotrack.mp3
+# 2. Add raw media (video, webcam, audio) to the project
+graphcut add-source my-awesome-video main_clip.mp4 background_audio.mp3
 
-# Boot up the local Web GUI editor
-graphcut serve my-video
+# 3. Boot up the local Web GUI editor to start cutting
+graphcut serve my-awesome-video
 ```
 
-## Contributing
-GraphCut is licensed under the **Fair Source License**. The codebase is open, freely accessible, and free for any personal, educational, or non-commercial usage indefinitely. See [LICENSE.md](LICENSE.md) for specifics covering corporate/commercial utilization.
+Navigate to `http://localhost:8420` in your web browser. Upload your media, hit **Generate Transcript**, delete the words you don't want, and click **Export** to render YouTube, TikTok, and Reels formats simultaneously!
+
+## 🏗️ Architecture
+
+Under the hood, GraphCut completely bypasses slow per-frame Python processing (like MoviePy or OpenCV). Instead, it orchestrates complex `FFmpeg` filtergraphs via `subprocess`, delivering maximum bare-metal rendering performance. 
+
+* **Backend:** FastAPI, Python 3.11+, Pydantic v2
+* **Frontend:** Vanilla JS, CSS Grid (Dependency-free HTML5)
+* **AI:** `faster-whisper` (CUDA/Metal supported!)
+
+## 🤝 Contributing & License
+
+GraphCut is licensed under the **Fair Source License**. 
+
+The codebase is completely open, transparent, and **free for any personal, educational, or non-commercial usage indefinitely.** If you use GraphCut to produce content that generates revenue over a certain threshold, or deploy it within a corporate environment, please see [LICENSE.md](LICENSE.md) for commercial licensing requirements.
+
+**Love the project? Please consider leaving a ⭐ on GitHub!**
