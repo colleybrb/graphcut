@@ -69,6 +69,16 @@ class FFmpegExecutor:
                     location = str(fallback_path)
                     break
 
+        # Fallback for Windows/Corporate users using python static binaries
+        if location is None:
+            try:
+                import static_ffmpeg
+                static_ffmpeg.add_paths()
+                # add_paths() mutates os.environ["PATH"] inside Python
+                location = shutil.which(name)
+            except ImportError:
+                pass
+
         if location is None:
             raise FFmpegError(
                 f"'{name}' not found on PATH or common Homebrew directories. Install FFmpeg: https://ffmpeg.org/download.html"
