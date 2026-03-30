@@ -73,10 +73,27 @@ class FFmpegExecutor:
         if location is None:
             try:
                 import static_ffmpeg
-                static_ffmpeg.add_paths()
-                # add_paths() mutates os.environ["PATH"] inside Python
+                import requests
+                import urllib3
+                
+                # Corporate MITM proxy bypass: Force requests to ignore SSL verification just for this initial download
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                original_get = requests.get
+                
+                def unverified_get(*args, **kwargs):
+                    kwargs['verify'] = False
+                    return original_get(*args, **kwargs)
+                
+                requests.get = unverified_get
+                
+                try: # add_paths() mutates os.environ["PATH"] inside Python
+                    static_ffmpeg.add_paths()
+                finally: # Restore original to prevent global pollution
+                    requests.get = original_get
+                    
                 location = shutil.which(name)
-            except ImportError:
+            except Exception as e:
+                logger.warning(f"Failed to bootstrap static FFmpeg fallback: {e}")
                 pass
 
         if location is None:
