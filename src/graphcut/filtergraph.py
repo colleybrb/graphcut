@@ -184,14 +184,22 @@ class FilterGraph:
         self.nodes.append(node)
         return vout
 
-    def scale(self, label: str, width: int | str, height: int | str) -> str:
+    def scale(
+        self,
+        label: str,
+        width: int | str,
+        height: int | str,
+        **extra_params: Any,
+    ) -> str:
         """Add a scale filter."""
         vout = self._next_v_label()
+        params: dict[str, Any] = {"w": width, "h": height}
+        params.update(extra_params)
         node = FilterNode(
             filter_name="scale",
             inputs=[label],
             outputs=[vout],
-            params={"w": width, "h": height}
+            params=params,
         )
         self.nodes.append(node)
         return vout

@@ -77,3 +77,13 @@ def test_compile_returns_inputs_and_graph():
     
     assert inputs == [p1, p2]
     assert "[0:v]trim=start=0:end=5,setpts=PTS-STARTPTS[vout0]" == graph
+
+
+def test_scale_supports_extra_params():
+    """Verify scale can include additional FFmpeg options cleanly."""
+    fg = FilterGraph()
+
+    out = fg.scale("v0", 1920, 1080, force_original_aspect_ratio="decrease")
+
+    assert out == "vout0"
+    assert fg.nodes[0].compile() == "[v0]scale=w=1920:h=1080:force_original_aspect_ratio=decrease[vout0]"

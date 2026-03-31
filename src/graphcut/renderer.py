@@ -166,6 +166,24 @@ class Renderer:
         global_cuts = self._resolve_transcript_cuts(manifest, project_dir)
 
         fg = FilterGraph()
+
+        first_clip_source = manifest.sources.get(manifest.clip_order[0].source_id)
+        timeline_width = first_clip_source.width if first_clip_source and first_clip_source.width else 1920
+        timeline_height = first_clip_source.height if first_clip_source and first_clip_source.height else 1080
+
+        def normalize_clip_video(video_label: str, info) -> str:
+            src_w = info.width or timeline_width
+            src_h = info.height or timeline_height
+            if src_w == timeline_width and src_h == timeline_height:
+                return video_label
+
+            scaled = fg.scale(
+                video_label,
+                timeline_width,
+                timeline_height,
+                force_original_aspect_ratio="decrease",
+            )
+            return fg.pad(scaled, timeline_width, timeline_height)
         
         # 1. Add inputs
         input_indices: dict[str, int] = {}
@@ -189,6 +207,7 @@ class Renderer:
 
             v_out = fg.trim(idx, start=t_start, end=t_end, stream="v")
             a_out = fg.trim(idx, start=t_start, end=t_end, stream="a")
+            v_out = normalize_clip_video(v_out, info)
 
             processed_clips.append(
                 {
@@ -236,11 +255,13 @@ class Renderer:
                         if ls > keep_start:
                             v = fg.trim(idx, start=keep_start, end=ls, stream="v")
                             a = fg.trim(idx, start=keep_start, end=ls, stream="a")
+                            v = normalize_clip_video(v, info)
                             kept_segments.append((v, a, max(0.0, ls - keep_start)))
                         keep_start = le
                     if keep_start < t_end:
                         v = fg.trim(idx, start=keep_start, end=t_end, stream="v")
                         a = fg.trim(idx, start=keep_start, end=t_end, stream="a")
+                        v = normalize_clip_video(v, info)
                         kept_segments.append((v, a, max(0.0, t_end - keep_start)))
 
                     for seg_index, (v, a, duration) in enumerate(kept_segments):
@@ -254,10 +275,13 @@ class Renderer:
                             }
                         )
                 else:
+                    v = fg.trim(idx, start=t_start, end=t_end, stream="v")
+                    a = fg.trim(idx, start=t_start, end=t_end, stream="a")
+                    v = normalize_clip_video(v, info)
                     cut_clips.append(
                         {
-                            "video": fg.trim(idx, start=t_start, end=t_end, stream="v"),
-                            "audio": fg.trim(idx, start=t_start, end=t_end, stream="a"),
+                            "video": v,
+                            "audio": a,
                             "duration": clip_duration,
                             "transition": clip.transition,
                             "transition_duration": max(0.0, float(clip.transition_duration)),

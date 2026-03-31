@@ -91,3 +91,39 @@ def test_renderer_retries_with_libx264_after_hw_encoder_failure(tmp_path: Path):
     assert len(executor.calls) == 2
     assert executor.calls[0][executor.calls[0].index("-c:v") + 1] == "h264_nvenc"
     assert executor.calls[1][executor.calls[1].index("-c:v") + 1] == "libx264"
+
+
+def test_renderer_normalizes_mixed_clip_sizes_before_concat(tmp_path: Path):
+    """Mixed source resolutions should be scaled/padded before concat."""
+    executor = DummyExecutor()
+    renderer = Renderer(executor=executor)
+    manifest = ProjectManifest(name="Mixed Sizes")
+    manifest.audio_mix = AudioMix(normalize=False)
+    manifest.sources = {
+        "a": MediaInfo(
+            file_path=Path("a.mp4"),
+            duration_seconds=1.0,
+            width=1902,
+            height=1060,
+            media_type="video",
+        ),
+        "b": MediaInfo(
+            file_path=Path("b.mp4"),
+            duration_seconds=1.0,
+            width=1904,
+            height=1020,
+            media_type="video",
+        ),
+    }
+    manifest.clip_order = [
+        ClipRef(source_id="a", trim_start=0.0, trim_end=1.0),
+        ClipRef(source_id="b", trim_start=0.0, trim_end=1.0),
+    ]
+
+    renderer.render(manifest, tmp_path / "out.mp4")
+
+    assert executor.args is not None
+    graph_str = executor.args[executor.args.index("-filter_complex") + 1]
+    assert "scale=w=1902:h=1060:force_original_aspect_ratio=decrease" in graph_str
+    assert "pad=w=1902:h=1060" in graph_str
+    assert "concat=n=2:v=1:a=1" in graph_str
