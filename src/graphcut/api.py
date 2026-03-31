@@ -1,8 +1,10 @@
 """REST API endpoints for the GraphCut underlying FFmpeg and project state logic."""
 
+import ipaddress
 import mimetypes
 import logging
 import re
+import socket
 import shutil
 import traceback
 import uuid
@@ -12,7 +14,7 @@ from threading import Lock
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
-from urllib.request import Request as UrlRequest, urlopen
+from urllib.request import HTTPRedirectHandler, Request as UrlRequest, build_opener
 
 import anyio
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
@@ -53,6 +55,8 @@ REMOTE_IMPORT_ALLOWED_SUFFIXES = {
 _JOBS: dict[str, dict[str, Any]] = {}
 _JOBS_LOCK = Lock()
 _WS_CLIENTS: list[WebSocket] = []
+_REMOTE_IMPORT_BLOCKED_HOSTS = {"localhost", "localhost.localdomain"}
+_REMOTE_IMPORT_REDIRECT_CODES = {301, 302, 303, 307, 308}
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -111,7 +115,7 @@ def save_manifest(manifest: ProjectManifest, request: Request):
 def _sanitize_media_filename(raw_name: str, fallback_stem: str = "imported_media") -> str:
     candidate = unquote(Path(raw_name or "").name).strip()
     stem = Path(candidate).stem or fallback_stem
-    suffix = Path(candidate).suffix
+    suffix = re.sub(r"[^A-Za-z0-9.]+", "", Path(candidate).suffix)[:12]
     stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._") or fallback_stem
     safe_name = f"{stem}{suffix}"
     return safe_name[:160]
@@ -136,6 +140,79 @@ def _build_remote_filename(raw_name: str, content_type: str, url: str) -> str:
     if Path(safe_name).suffix:
         return safe_name
     return f"{safe_name}{guessed_suffix}"
+
+
+def _resolve_within(root: Path, user_path: str, error_detail: str) -> Path:
+    root_resolved = root.resolve()
+    candidate = (root_resolved / user_path).resolve()
+    if not candidate.is_relative_to(root_resolved):
+        raise HTTPException(403, error_detail)
+    return candidate
+
+
+def _iter_host_ips(hostname: str, port: int) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    try:
+        return [ipaddress.ip_address(hostname)]
+    except ValueError:
+        pass
+
+    try:
+        infos = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise HTTPException(400, f"Could not resolve remote host: {hostname}") from exc
+
+    ips: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+    seen: set[str] = set()
+    for info in infos:
+        sockaddr = info[4]
+        if not sockaddr:
+            continue
+        address_text = sockaddr[0]
+        if address_text in seen:
+            continue
+        seen.add(address_text)
+        ips.append(ipaddress.ip_address(address_text))
+    return ips
+
+
+def _validate_remote_import_url(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(400, "Paste a direct http(s) media URL.")
+    if parsed.username or parsed.password:
+        raise HTTPException(400, "Credentials in remote media URLs are not supported.")
+
+    hostname = (parsed.hostname or "").strip().lower().rstrip(".")
+    if not hostname:
+        raise HTTPException(400, "Remote media URL is missing a host.")
+    if hostname in _REMOTE_IMPORT_BLOCKED_HOSTS:
+        raise HTTPException(403, "Remote imports from localhost are blocked.")
+
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    for addr in _iter_host_ips(hostname, port):
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_reserved
+            or addr.is_unspecified
+        ):
+            raise HTTPException(403, "Remote imports must point to a public host.")
+
+
+def _origin_allowed(app: Any, origin: str | None) -> bool:
+    if not origin:
+        return True
+    pattern = getattr(getattr(app, "state", None), "allowed_origin_pattern", None)
+    if pattern is None:
+        return False
+    return bool(pattern.match(origin))
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def _validate_sticker_overlay(overlay: StickerOverlay, manifest: ProjectManifest) -> StickerOverlay:
@@ -234,16 +311,21 @@ async def upload_source(request: Request, file: UploadFile = File(...)):
     pdir = request.app.state.project_dir
     media_dir = pdir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    
-    safe_name = file.filename or "uploaded_media.mp4"
-    dest_path = media_dir / safe_name
-    
+
+    safe_name = _sanitize_media_filename(file.filename or "uploaded_media.mp4", fallback_stem="uploaded_media")
+    dest_path = _unique_media_path(media_dir, safe_name)
+
     with dest_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
-    ProjectManager.add_source(manifest, dest_path)
+
+    try:
+        source_id = ProjectManager.add_source(manifest, dest_path)
+    except Exception as exc:
+        dest_path.unlink(missing_ok=True)
+        raise HTTPException(400, f"Uploaded file could not be added as media: {exc}") from exc
+
     save_manifest(manifest, request)
-    return {"status": "ok", "filename": safe_name}
+    return {"status": "ok", "filename": dest_path.name, "source_id": source_id}
 
 
 class ImportSourceUrlReq(BaseModel):
@@ -259,16 +341,16 @@ def import_source_url(req: ImportSourceUrlReq, request: Request):
     media_dir.mkdir(parents=True, exist_ok=True)
 
     url = (req.url or "").strip()
+    _validate_remote_import_url(url)
     parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(400, "Paste a direct http(s) media URL.")
 
     source_hint = (req.source_id or "").strip() or None
     dest_path: Path | None = None
 
     try:
         remote_req = UrlRequest(url, headers={"User-Agent": "GraphCut/1.0"})
-        with urlopen(remote_req, timeout=20) as response:
+        opener = build_opener(_NoRedirectHandler())
+        with opener.open(remote_req, timeout=20) as response:
             content_type = (response.headers.get_content_type() or "application/octet-stream").lower()
             looks_like_media = (
                 any(parsed.path.lower().endswith(suffix) for suffix in REMOTE_IMPORT_ALLOWED_SUFFIXES)
@@ -305,6 +387,8 @@ def import_source_url(req: ImportSourceUrlReq, request: Request):
     except HTTPError as exc:
         if dest_path:
             dest_path.unlink(missing_ok=True)
+        if exc.code in _REMOTE_IMPORT_REDIRECT_CODES:
+            raise HTTPException(400, "Redirecting media URLs are blocked. Paste the final direct asset URL.") from exc
         raise HTTPException(502, f"Remote server returned {exc.code} while downloading media.") from exc
     except URLError as exc:
         if dest_path:
@@ -771,7 +855,7 @@ async def trigger_render(req: RenderReq, request: Request, bg_tasks: BackgroundT
 
     p.quality = req.quality
     job_id = f"render_{p.name}_{p.quality}_{uuid.uuid4().hex[:8]}"
-    out_filename = f"{manifest.name}_{p.name}.mp4"
+    out_filename = exporter.build_output_filename(manifest, p)
     out = pdir / manifest.build_dir
     out.mkdir(parents=True, exist_ok=True)
 
@@ -848,14 +932,18 @@ def get_job(job_id: str):
 def download_export(filename: str, request: Request):
     pdir = request.app.state.project_dir
     manifest = get_manifest(request)
-    path = pdir / manifest.build_dir / filename
+    build_dir = (pdir / manifest.build_dir).resolve()
+    path = _resolve_within(build_dir, filename, "Export path is outside the build directory.")
     if not path.exists():
         raise HTTPException(404, "Export not found")
-    return FileResponse(path, media_type="video/mp4", filename=filename)
+    return FileResponse(path, media_type="video/mp4", filename=path.name)
 
 
 @router.websocket("/ws/progress")
 async def ws_progress(websocket: WebSocket):
+    if not _origin_allowed(websocket.scope.get("app"), websocket.headers.get("origin")):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     _WS_CLIENTS.append(websocket)
     try:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Callable
 
@@ -14,12 +15,24 @@ from graphcut.renderer import Renderer
 logger = logging.getLogger(__name__)
 
 
+def _safe_filename_part(value: str, fallback: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value or "").strip())
+    cleaned = cleaned.strip("._-") or fallback
+    return cleaned[:80]
+
+
 class Exporter:
     """Manages format aspect ratio conversions and FFmpeg quality tuning."""
 
     def __init__(self, executor: FFmpegExecutor | None = None, renderer: Renderer | None = None) -> None:
         self.executor = executor or FFmpegExecutor()
         self.renderer = renderer or Renderer(executor=self.executor)
+
+    @staticmethod
+    def build_output_filename(manifest: ProjectManifest, preset: ExportPreset) -> str:
+        project_name = _safe_filename_part(manifest.name, "project")
+        preset_name = _safe_filename_part(preset.name, "export")
+        return f"{project_name}_{preset_name}.mp4"
 
     def export(
         self,
@@ -30,7 +43,7 @@ class Exporter:
         project_dir: Path | None = None,
     ) -> Path:
         """Export the project to a specific format preset."""
-        output_path = output_dir / f"{manifest.name}_{preset.name}.mp4"
+        output_path = output_dir / self.build_output_filename(manifest, preset)
         logger.info("Exporting %s to %s", preset.name, output_path.name)
         
         # We hook into Renderer by passing our own Aspect Ratio modifications onto the FilterGraph

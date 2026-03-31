@@ -17,6 +17,17 @@ export class ClipPanel {
         this._saveTimers = new Map();
     }
 
+    _escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;');
+    }
+
+    _escapeAttr(value) {
+        return this._escapeHtml(value).replaceAll('"', '&quot;');
+    }
+
     _clearDropIndicators() {
         this.container?.querySelectorAll('[data-drop-slot]').forEach((slot) => {
             slot.classList.remove('bg-primary/20', 'border-primary/70', 'shadow-[0_0_18px_rgba(37,226,235,0.22)]');
@@ -205,7 +216,7 @@ export class ClipPanel {
             });
 
             const thumbHtml = info.thumbnail
-                ? `<img src="${info.thumbnail}" class="w-12 h-8 object-cover rounded border border-outline-variant/30">`
+                ? `<img src="${this._escapeAttr(info.thumbnail)}" class="w-12 h-8 object-cover rounded border border-outline-variant/30">`
                 : `<div class="w-12 h-8 bg-surface-container rounded border border-outline-variant/30 flex items-center justify-center"><span class="material-symbols-outlined text-[10px] text-on-surface-variant">movie</span></div>`;
 
             el.innerHTML = `
@@ -214,7 +225,7 @@ export class ClipPanel {
                 </div>
                 ${thumbHtml}
                 <div class="flex-1 min-w-0 pr-8">
-                    <p class="text-[10px] font-bold ${selected ? 'text-primary' : 'text-on-surface'} truncate" title="${sid}">${sid}</p>
+                    <p class="text-[10px] font-bold ${selected ? 'text-primary' : 'text-on-surface'} truncate" title="${this._escapeAttr(sid)}">${this._escapeHtml(sid)}</p>
                     <div class="flex items-center gap-2 mt-0.5">
                         <span class="text-[9px] ${clip.transition === 'cut' ? 'bg-primary/20 text-primary' : 'bg-secondary/20 text-secondary'} px-1 rounded uppercase font-bold">${transitionLabel}</span>
                         <span class="mono text-[9px] text-on-surface-variant/70">${clipDur.toFixed(1)}s</span>

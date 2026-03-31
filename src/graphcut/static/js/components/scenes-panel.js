@@ -35,7 +35,7 @@ export class ScenesPanel {
                     <div class="media-item" style="cursor: default;">
                         <div class="media-info" style="flex:1;">
                             <div class="media-name">${this._escape(name)}${isActive ? ' (Active)' : ''}</div>
-                            <div class="media-meta">${this._sceneMeta(scenes[name])}</div>
+                            <div class="media-meta">${this._escape(this._sceneMeta(scenes[name]))}</div>
                         </div>
                         <div style="display:flex; gap: 6px;">
                             <button class="btn btn-sm ${isActive ? 'btn-outline' : 'btn-primary'}" data-scene-activate="${this._escapeAttr(name)}" ${isActive ? 'disabled' : ''}>Activate</button>
@@ -115,6 +115,6 @@ export class ScenesPanel {
     }
 
     _escapeAttr(s) {
-        return String(s).replaceAll('"', '&quot;');
+        return this._escape(s).replaceAll('"', '&quot;');
     }
 }

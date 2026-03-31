@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -10,6 +11,12 @@ from graphcut.media_prober import probe_file
 from graphcut.models import ClipRef, ProjectManifest
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_source_id(raw_value: str, fallback: str = "source") -> str:
+    normalized = re.sub(r"[^A-Za-z0-9._-]+", "_", (raw_value or "").strip())
+    normalized = normalized.strip("._-") or fallback
+    return normalized[:80]
 
 
 class ProjectManager:
@@ -102,7 +109,7 @@ class ProjectManager:
         if not file_path.exists():
             raise ValueError(f"Source file not found: {file_path}")
 
-        source_id = source_id or file_path.stem
+        source_id = _normalize_source_id(source_id or file_path.stem)
         if source_id in manifest.sources:
             suffix = 1
             original_id = source_id

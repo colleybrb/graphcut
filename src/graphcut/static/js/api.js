@@ -59,7 +59,13 @@ export class GraphCutAPI {
         return fetch(`${this.baseUrl}/sources/upload`, {
             method: 'POST',
             body: formData
-        }).then(res => res.json());
+        }).then(async (res) => {
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(`API Error: ${body?.detail || res.statusText}`);
+            }
+            return body;
+        });
     }
 
     importSourceUrl(url, sourceId = null) {

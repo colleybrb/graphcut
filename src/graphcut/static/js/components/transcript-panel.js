@@ -50,6 +50,13 @@ export class TranscriptPanel {
         });
     }
 
+    _escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;');
+    }
+
     _updateCutButtons() {
         const applyBtn = document.getElementById('btn-apply-cuts');
         if (applyBtn) {
@@ -281,7 +288,7 @@ export class TranscriptPanel {
         Object.entries(this.app.state.transcript).forEach(([sid, data]) => {
             const block = document.createElement('div');
             block.style.marginBottom = '20px';
-            block.innerHTML = `<h3 style="font-size:0.8rem;color:var(--text-muted);border-bottom:1px solid var(--border-color);margin-bottom:8px">${sid}</h3>`;
+            block.innerHTML = `<h3 style="font-size:0.8rem;color:var(--text-muted);border-bottom:1px solid var(--border-color);margin-bottom:8px">${this._escapeHtml(sid)}</h3>`;
             
             const wordsContainer = document.createElement('div');
             

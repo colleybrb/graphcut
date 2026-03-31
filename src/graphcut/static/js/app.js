@@ -313,7 +313,7 @@ class App {
                     </div>
                     <div class="rounded-xl border border-outline-variant/15 bg-surface-container-low p-4">
                         <div class="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">Updated</div>
-                        <div class="mt-2 text-sm font-semibold text-on-surface">${project.updated_at || '--'}</div>
+                        <div class="mt-2 text-sm font-semibold text-on-surface">${this.escapeHtml(project.updated_at || '--')}</div>
                     </div>
                 </div>
                 <div class="mt-4 rounded-xl border border-outline-variant/15 bg-surface-container-low p-4">
@@ -747,14 +747,14 @@ class App {
                         <div class="rounded-xl border border-outline-variant/15 bg-surface-container-low p-4">
                             <div class="flex items-start justify-between gap-3">
                                 <div>
-                                    <div class="text-sm font-semibold text-on-surface">${job.preset || job.type || 'Render'}</div>
-                                    <div class="mt-1 text-xs text-on-surface-variant">${job.output_filename || job.job_id}</div>
+                                    <div class="text-sm font-semibold text-on-surface">${this.escapeHtml(job.preset || job.type || 'Render')}</div>
+                                    <div class="mt-1 text-xs text-on-surface-variant">${this.escapeHtml(job.output_filename || job.job_id)}</div>
                                 </div>
-                                <span class="px-2 py-1 rounded-full border text-[10px] uppercase tracking-[0.18em] ${statusTone}">${job.status || 'queued'}</span>
+                                <span class="px-2 py-1 rounded-full border text-[10px] uppercase tracking-[0.18em] ${statusTone}">${this.escapeHtml(job.status || 'queued')}</span>
                             </div>
                             <div class="mt-3 text-xs text-on-surface-variant">
                                 <div>Progress: ${Number(job.last_progress ?? 0).toFixed(1)}%</div>
-                                <div class="mt-1">Updated: ${job.updated_at || job.created_at || '--'}</div>
+                                <div class="mt-1">Updated: ${this.escapeHtml(job.updated_at || job.created_at || '--')}</div>
                             </div>
                         </div>
                     `;
@@ -774,7 +774,7 @@ class App {
             this.openTopPanel({
                 eyebrow: 'Activity',
                 title: 'Render History',
-                body: `<div class="text-sm text-red-300">${err.message || 'Failed to load render history.'}</div>`
+                body: `<div class="text-sm text-red-300">${this.escapeHtml(err.message || 'Failed to load render history.')}</div>`
             });
         }
     }
