@@ -1,6 +1,6 @@
 <div align="center">
   <br/>
-  <img src="assets/graphcut-hero-banner.png" alt="GraphCut — Agent-first video engine. Raw footage in, platform-ready content out." width="860" />
+  <img src="assets/graphcutherobanner.png" alt="GraphCut — Agent-first video engine. Raw footage in, platform-ready content out." width="860" />
   <br/><br/>
 
   # GraphCut 🎬✂️
@@ -68,7 +68,7 @@ Export presets encode each platform's actual requirements: TikTok's 9:16 aspect 
 GraphCut occupies a specific point in the video tooling landscape. Here's an honest guide to when it's the right pick — and when it isn't.
 
 <div align="center">
-  <img src="assets/graphcut-positioning.png" alt="Competitive positioning chart — GraphCut vs Remotion, MLT, GStreamer, ComfyUI, and auto-editor" width="780" />
+  <img src="assets/graphcutpicktherighttool.png" alt="Competitive positioning chart — GraphCut vs Remotion, MLT, GStreamer, ComfyUI, and auto-editor" width="780" />
   <br/>
   <em>Where GraphCut sits in the automated video infrastructure landscape</em>
   <br/><br/>
@@ -125,7 +125,7 @@ graphcut serve my-video    # → opens http://localhost:8420
 The full creator workflow — from script to storyboard to generated video to publish-ready metadata — is scriptable end to end.
 
 <div align="center">
-  <img src="assets/graphcut-cli-showcase.png" alt="GraphCut CLI agent workflow — storyboard, generate, and viralize commands with syntax-highlighted JSON output" width="780" />
+  <img src="assets/graphcutcli.png" alt="GraphCut CLI agent workflow — storyboard, generate, and viralize commands with syntax-highlighted JSON output" width="780" />
   <br/>
   <em>Script → Storyboard → Generate → Viralize — the full agent pipeline in your terminal</em>
   <br/><br/>
@@ -248,7 +248,7 @@ The GUI is not the product — it's a window into what the CLI built. Open it wh
 
 <div align="center">
   <br/>
-  <img src="assets/graphcut_ui_stitch.png" alt="GraphCut web editor — media library, transcript-based editing, and multi-platform export" width="780" />
+  <img src="assets/graphcutapp.png" alt="GraphCut web editor — media library, transcript-based editing, and multi-platform export" width="780" />
   <br/>
   <em>The GraphCut "Obsidian and Gold" web GUI — peek behind the curtain at what the agent built</em>
   <br/><br/>
@@ -395,7 +395,7 @@ graphcut export my-video --preset Shorts --quality draft
 ## 🏗️ Architecture
 
 <div align="center">
-  <img src="assets/graphcut-architecture.png" alt="GraphCut architecture — Agent Layer → CLI → Ingest/Compose/Deliver pipeline → Composable Ecosystem" width="780" />
+  <img src="assets/graphcutprotocolarchitecture.png" alt="GraphCut architecture — Agent Layer → CLI → Ingest/Compose/Deliver pipeline → Composable Ecosystem" width="780" />
   <br/>
   <em>Agent-driven architecture with composable integration points</em>
   <br/><br/>
