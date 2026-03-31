@@ -34,6 +34,8 @@ from graphcut.ffmpeg_executor import FFmpegError
 from graphcut.project_manager import ProjectManager
 from graphcut.transcriber import Transcriber
 from graphcut.exporter import Exporter
+from graphcut.generation_queue import list_provider_names
+from graphcut.platforms import list_platform_profiles, list_workflow_recipes
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +169,34 @@ def _validate_sticker_overlay(overlay: StickerOverlay, manifest: ProjectManifest
 @router.get("/project", response_model=ProjectManifest)
 def get_project(request: Request):
     return get_manifest(request)
+
+
+@router.get("/pipeline/capabilities")
+def get_pipeline_capabilities():
+    return {
+        "providers": list_provider_names(),
+        "platforms": [platform.to_dict() for platform in list_platform_profiles()],
+        "recipes": [recipe.to_dict() for recipe in list_workflow_recipes()],
+        "workflows": ["storyboard", "generate", "queue", "package", "viralize", "creator-brief"],
+        "features": {
+            "source_files": {"label": "Source Files", "status": "gui", "area": "ingest"},
+            "scene_detection": {"label": "Scene Detection", "status": "cli", "area": "ingest", "command": "graphcut detect-scenes <project_dir>"},
+            "transcription": {"label": "Transcription", "status": "gui", "area": "ingest"},
+            "timeline_builder": {"label": "Timeline Builder", "status": "gui", "area": "compose"},
+            "audio_normalization": {"label": "Audio Normalization", "status": "gui", "area": "compose"},
+            "caption_overlay": {"label": "Caption Overlay", "status": "gui", "area": "compose"},
+            "transitions": {"label": "Transitions", "status": "gui", "area": "compose"},
+            "platform_presets": {"label": "Platform Presets", "status": "gui", "area": "deliver"},
+            "ffmpeg_render": {"label": "FFmpeg Render", "status": "gui", "area": "deliver"},
+            "multi_format_export": {"label": "Multi-format Export", "status": "gui", "area": "deliver"},
+            "generation_queue": {"label": "Generation Queue", "status": "cli", "area": "agent"},
+            "provider_adapters": {"label": "Provider Adapters", "status": "integration", "area": "agent"},
+            "agent_templates": {"label": "Agent JSON Templates", "status": "cli", "area": "agent"},
+            "creator_brief": {"label": "Creator Brief", "status": "cli", "area": "agent"},
+            "preview_surface": {"label": "Preview Surface", "status": "gui", "area": "interface"},
+            "node_inspector": {"label": "Node Inspector", "status": "gui", "area": "interface"},
+        },
+    }
 
 
 class OpenReq(BaseModel):

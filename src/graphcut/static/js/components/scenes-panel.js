@@ -20,7 +20,7 @@ export class ScenesPanel {
                     <button class="btn btn-sm btn-primary" id="btn-scene-save">Save</button>
                 </div>
                 <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 6px;">
-                    Saves current Webcam, Audio Mix, Captions, Narration/Music selections.
+                    Saves current Webcam, Sticker Overlay, Audio Mix, Captions, and Narration/Music selections.
                 </div>
             </div>
         `;
@@ -99,10 +99,15 @@ export class ScenesPanel {
     _sceneMeta(scene) {
         if (!scene) return '';
         const webcam = scene.webcam?.source_id ? `Webcam: ${scene.webcam.source_id}` : 'Webcam: Off';
+        const sticker = scene.sticker?.source_id
+            ? `Sticker: ${scene.sticker.source_id}`
+            : scene.sticker?.text
+                ? `Sticker: ${scene.sticker.text}`
+                : 'Sticker: Off';
         const narr = scene.narration ? `Narration: ${scene.narration}` : 'Narration: None';
         const music = scene.music ? `Music: ${scene.music}` : 'Music: None';
         const caps = scene.caption_style?.style ? `Captions: ${scene.caption_style.style}` : 'Captions: ?';
-        return `${webcam} • ${narr} • ${music} • ${caps}`;
+        return `${webcam} • ${sticker} • ${narr} • ${music} • ${caps}`;
     }
 
     _escape(s) {
@@ -113,4 +118,3 @@ export class ScenesPanel {
         return String(s).replaceAll('"', '&quot;');
     }
 }
-

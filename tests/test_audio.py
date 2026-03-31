@@ -51,7 +51,7 @@ def test_gain_applied():
 def test_ducking_generates_sidechain():
     """Verify sidechaincompress is in graph when music + narration exist."""
     fg = FilterGraph()
-    mix = AudioMix(ducking_strength=0.8)
+    mix = AudioMix(ducking_strength=0.8, silence_threshold_db=-40.0)
     mixer = AudioMixer(mix)
     
     mixer.build_audio_graph(
@@ -63,6 +63,7 @@ def test_ducking_generates_sidechain():
     
     _, graph_str = fg.compile()
     assert "sidechaincompress=" in graph_str
+    assert "threshold=0.01" in graph_str
     
     # If ducking strength is 0, no sidechain
     fg2 = FilterGraph()

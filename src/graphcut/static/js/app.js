@@ -21,6 +21,7 @@ class App {
             audioConfig: null,
             overlays: null,
             presets: null,
+            pipelineCapabilities: null,
             activeJob: null,
             activeClipIndex: null,
             activeTopNav: null,
@@ -102,7 +103,7 @@ class App {
             document.getElementById('save-status').textContent = "Syncing with GraphCut CLI...";
             
             // Parallel fetches
-            const [proj, srcs, clps, trx, aud, ovr, exp] = await Promise.all([
+            const [proj, srcs, clps, trx, aud, ovr, exp, pipeline] = await Promise.all([
                 this.api.getProject(),
                 this.api.getSources(),
                 this.api.getClips(),
@@ -110,6 +111,7 @@ class App {
                 this.api.getAudio(),
                 this.api.getOverlays(),
                 this.api.getExportPresets(),
+                this.api.getPipelineCapabilities(),
             ]);
 
             this.state.project = proj;
@@ -119,6 +121,7 @@ class App {
             this.state.audioConfig = aud;
             this.state.overlays = ovr;
             this.state.presets = exp;
+            this.state.pipelineCapabilities = pipeline;
             if (!Array.isArray(this.state.clips) || this.state.clips.length === 0) {
                 this.state.activeClipIndex = null;
             } else if (this.state.activeClipIndex === null) {
@@ -272,6 +275,12 @@ class App {
             return;
         }
 
+        if (target === 'pipeline') {
+            this.activateTopNav(target);
+            this.openTopPanel(this.buildPipelinePanel());
+            return;
+        }
+
         if (target === 'history') {
             this.activateTopNav(target);
             await this.showHistoryPanel();
@@ -318,6 +327,402 @@ class App {
                 </div>
             `
         };
+    }
+
+    buildPipelinePanel() {
+        const pipeline = this.state.pipelineCapabilities || {};
+        const providers = Array.isArray(pipeline.providers) && pipeline.providers.length > 0 ? pipeline.providers : ['mock'];
+        const platforms = Array.isArray(pipeline.platforms) ? pipeline.platforms : [];
+        const recipes = Array.isArray(pipeline.recipes) ? pipeline.recipes : [];
+        const features = pipeline.features || {};
+        const inspectorPayload = this.buildNodeInspectorPayload();
+        const inspectorJson = this.escapeHtml(JSON.stringify(inspectorPayload, null, 2));
+        const commandRows = [
+            {
+                command: 'storyboard',
+                detail: 'Script to provider-agnostic shot prompts with visual prompt, camera move, on-screen text, and aspect ratio.'
+            },
+            {
+                command: 'generate',
+                detail: 'Submits a storyboard or raw script to a video provider and can wait plus fetch in one pass.'
+            },
+            {
+                command: 'queue submit/list/status/wait/fetch',
+                detail: 'Full job lifecycle control for generation tasks from submission through download.'
+            },
+            {
+                command: 'package',
+                detail: 'Turns a source asset into publish-ready metadata: titles, descriptions, hashtags, and hook variants.'
+            },
+            {
+                command: 'viralize',
+                detail: 'Plans or renders short-form cuts and emits the publishing bundle in the same workflow.'
+            },
+            {
+                command: 'creator-brief',
+                detail: 'Recommends the best GraphCut workflow for a given source file and content shape.'
+            }
+        ];
+        const featureRoutes = {
+            source_files: { action: 'open-assets' },
+            scene_detection: { action: 'copy-command', command: 'graphcut detect-scenes <project_dir>' },
+            transcription: { action: 'open-transcript' },
+            timeline_builder: { action: 'open-assets' },
+            audio_normalization: { action: 'open-audio' },
+            caption_overlay: { action: 'open-overlays' },
+            transitions: { action: 'open-effects' },
+            platform_presets: { action: 'open-export' },
+            ffmpeg_render: { action: 'open-export' },
+            multi_format_export: { action: 'open-export' },
+            generation_queue: { action: 'copy-command', command: 'graphcut queue list --json' },
+            provider_adapters: { action: 'copy-command', command: 'graphcut providers list --json' },
+            agent_templates: { action: 'copy-command', command: 'graphcut agent template viralize --json' },
+            creator_brief: { action: 'copy-command', command: 'graphcut creator brief <source_file> --json' },
+            preview_surface: { action: 'open-preview' },
+            node_inspector: { action: 'copy-inspector' },
+        };
+        const featureColumns = {
+            ingest: ['source_files', 'scene_detection', 'transcription'],
+            compose: ['timeline_builder', 'audio_normalization', 'caption_overlay', 'transitions'],
+            deliver: ['platform_presets', 'ffmpeg_render', 'multi_format_export'],
+        };
+        const agentCards = [
+            { label: 'Storyboard Agent', sub: 'CLI live', copy: 'graphcut storyboard, provider-agnostic shot planning.' },
+            { label: 'Generate Queue', sub: 'CLI live', copy: 'graphcut generate + queue lifecycle backed by the mock provider today.' },
+            { label: 'Creator Brief', sub: 'CLI live', copy: 'Recommended workflow + next actions from source analysis.' },
+            { label: 'External Agents', sub: 'Integration-ready', copy: 'JSON in/out contracts for orchestrators or custom SDK agents.' },
+        ];
+        const recipeSummary = recipes.slice(0, 3).map((recipe) => recipe.label).join(' • ') || 'Podcast Clips • Talking Head • Reaction Clips';
+        const platformSummary = platforms.slice(0, 4).map((platform) => platform.label).join(' • ') || 'TikTok • Reels • Shorts • YouTube';
+
+        return {
+            eyebrow: 'Creator System',
+            title: 'Creator Agent Pipeline',
+            body: `
+                <div class="gc-stack">
+                    <div class="gc-panel-anchorbar">
+                        <button class="topnav-panel-action gc-scope-btn active" data-topnav-action="scroll-panel" data-section="workspace">Console Shell</button>
+                        <button class="topnav-panel-action gc-scope-btn" data-topnav-action="scroll-panel" data-section="architecture">Architecture</button>
+                        <button class="topnav-panel-action gc-scope-btn" data-topnav-action="scroll-panel" data-section="inspector">Node Inspector</button>
+                        <button class="topnav-panel-action gc-scope-btn" data-topnav-action="scroll-panel" data-section="toolfit">Tool Fit</button>
+                    </div>
+
+                    <section class="gc-section-card" data-pipeline-section="workspace">
+                        <div class="gc-eyebrow">Console Workspace</div>
+                        <div class="gc-title-row">
+                            <strong class="text-sm text-on-surface">A cohesive home for the CLI-first creator workflow</strong>
+                            <span class="gc-setting-value">${providers.length} provider${providers.length === 1 ? '' : 's'}</span>
+                        </div>
+                        <p class="gc-copy" style="margin-top:0.45rem;">
+                            This workspace frames the actual GraphCut agent flow inside the GUI: terminal-first commands, queue lifecycle control, publishing recipes, and clear jump points back into the editor.
+                        </p>
+                        <div class="gc-shell-layout" style="margin-top:1rem;">
+                            <aside class="gc-sidebar-shell">
+                                <div class="gc-sidebar-logo">
+                                    <strong>GraphCut CLI</strong>
+                                    <span>Workflow Agent v4.1</span>
+                                </div>
+                                <div class="gc-side-nav">
+                                    <button class="topnav-panel-action active" data-topnav-action="scroll-panel" data-section="workspace"><span class="material-symbols-outlined text-sm">folder_open</span> Root</button>
+                                    <button class="topnav-panel-action" data-topnav-action="open-assets"><span class="material-symbols-outlined text-sm">inventory_2</span> Assets</button>
+                                    <button class="topnav-panel-action" data-topnav-action="copy-command" data-command="graphcut storyboard --text &quot;Hook first. Then show the payoff.&quot; --json"><span class="material-symbols-outlined text-sm">terminal</span> Scripts</button>
+                                    <button class="topnav-panel-action" data-topnav-action="scroll-panel" data-section="architecture"><span class="material-symbols-outlined text-sm">settings</span> Environment</button>
+                                    <button class="topnav-panel-action" data-topnav-action="open-history"><span class="material-symbols-outlined text-sm">receipt_long</span> Logs</button>
+                                </div>
+                                <button class="topnav-panel-action gc-exec-btn" data-topnav-action="copy-command" data-command="graphcut generate --text &quot;Hook first. Then show the payoff.&quot; --provider mock --fetch --json">Execute</button>
+                            </aside>
+
+                            <div class="gc-shell-main">
+                                <div class="gc-shell-topnav">
+                                    <div class="gc-shell-tabs">
+                                        <button class="topnav-panel-action gc-shell-tab" data-topnav-action="scroll-panel" data-section="workspace">Console</button>
+                                        <button class="topnav-panel-action gc-shell-tab" data-topnav-action="scroll-panel" data-section="architecture">Docs</button>
+                                        <button class="topnav-panel-action gc-shell-tab" data-topnav-action="open-assets">Assets</button>
+                                        <button class="topnav-panel-action gc-shell-tab" data-topnav-action="open-export">Deployment</button>
+                                    </div>
+                                    <div class="gc-shell-tools">
+                                        <input class="gc-shell-search" value="" placeholder="Search cluster..." readonly>
+                                        <button class="gc-shell-mini-btn topnav-panel-action" data-topnav-action="copy-inspector"><span class="material-symbols-outlined text-sm">code</span></button>
+                                        <button class="gc-shell-mini-btn topnav-panel-action" data-topnav-action="scroll-panel" data-section="inspector"><span class="material-symbols-outlined text-sm">visibility</span></button>
+                                        <button class="gc-shell-mini-btn topnav-panel-action" data-topnav-action="scroll-panel" data-section="architecture"><span class="material-symbols-outlined text-sm">settings</span></button>
+                                        <button class="topnav-panel-action gc-exec-btn" data-topnav-action="copy-command" data-command="graphcut viralize podcast.mp4 --recipe podcast --clips 8 --render">Execute</button>
+                                    </div>
+                                </div>
+
+                                <section class="gc-terminal-card">
+                                    <div class="gc-terminal-topbar">
+                                        <div class="gc-terminal-dots">
+                                            <span class="gc-terminal-dot red"></span>
+                                            <span class="gc-terminal-dot yellow"></span>
+                                            <span class="gc-terminal-dot green"></span>
+                                        </div>
+                                        <div class="gc-terminal-label">graphcut-cli • workflow-agent • node v20.10.0</div>
+                                    </div>
+                                    <div class="gc-terminal-body">
+                                        <span class="gc-terminal-line"><span class="gc-terminal-prompt">$</span> graphcut storyboard --text "Hook first. Then show the payoff." --json &gt; storyboard.json</span>
+                                        <span class="gc-terminal-line gc-terminal-comment">Generating narrative structural metadata...</span>
+                                        <span class="gc-terminal-line" style="margin-top:0.7rem;"><span class="gc-terminal-prompt">$</span> graphcut generate --storyboard storyboard.json --provider mock --fetch --json</span>
+                                        <span class="gc-terminal-line">{</span>
+                                        <span class="gc-terminal-line">  <span class="gc-terminal-json-key">"status"</span>: <span class="gc-terminal-json-string">"success"</span>,</span>
+                                        <span class="gc-terminal-line">  <span class="gc-terminal-json-key">"workflow_id"</span>: <span class="gc-terminal-json-string">"gen-bf-99"</span>,</span>
+                                        <span class="gc-terminal-line">  <span class="gc-terminal-json-key">"artifacts"</span>: [</span>
+                                        <span class="gc-terminal-line">    { <span class="gc-terminal-json-key">"type"</span>: <span class="gc-terminal-json-string">"video clip"</span>, <span class="gc-terminal-json-key">"path"</span>: <span class="gc-terminal-json-string">"./assets/hook_01.mp4"</span> },</span>
+                                        <span class="gc-terminal-line">    { <span class="gc-terminal-json-key">"type"</span>: <span class="gc-terminal-json-string">"metadata"</span>, <span class="gc-terminal-json-key">"path"</span>: <span class="gc-terminal-json-string">"./build/manifest.json"</span> }</span>
+                                        <span class="gc-terminal-line">  ]</span>
+                                        <span class="gc-terminal-line">}</span>
+                                        <span class="gc-terminal-line" style="margin-top:0.8rem;"><span class="gc-terminal-prompt">$</span> graphcut viralize podcast.mp4 --recipe podcast --clips 8 --render</span>
+                                        <span class="gc-terminal-line gc-terminal-comment">• Analyzing spatial audio cues...</span>
+                                        <span class="gc-terminal-line gc-terminal-comment">• Processing viral hooks with Kinetic Engine...</span>
+                                        <span class="gc-terminal-line gc-terminal-comment">• Rendering 4K H.265 frames...</span>
+                                        <div class="gc-terminal-progress">
+                                            <span>rendering</span>
+                                            <div class="gc-terminal-progressbar"><span></span></div>
+                                            <span>82%</span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="gc-feature-grid">
+                                    <article class="gc-feature-card">
+                                        <span class="material-symbols-outlined text-primary" style="font-size:18px;">flash_on</span>
+                                        <strong>Instant Storyboarding</strong>
+                                        <p>Convert text prompts into structured visual arcs using provider-agnostic shot planning.</p>
+                                    </article>
+                                    <article class="gc-feature-card">
+                                        <span class="material-symbols-outlined text-primary" style="font-size:18px;">movie</span>
+                                        <strong>Kinetic Rendering</strong>
+                                        <p>Headless generation plus queue control for clips, storyboards, and packaging workflows.</p>
+                                    </article>
+                                    <article class="gc-feature-card">
+                                        <span class="material-symbols-outlined text-primary" style="font-size:18px;">cloud_upload</span>
+                                        <strong>Deployment Hooks</strong>
+                                        <p>Publish bundles and local outputs are ready to hand off to external storage or social pipelines.</p>
+                                    </article>
+                                </section>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="gc-section-card">
+                        <div class="gc-eyebrow">Command Map</div>
+                        <div class="mt-3 overflow-x-auto">
+                            <table class="gc-command-table">
+                                <thead>
+                                    <tr>
+                                        <th>Command</th>
+                                        <th>What It Does</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${commandRows.map((row) => `
+                                        <tr>
+                                            <td><span class="gc-command-name">${row.command}</span></td>
+                                            <td>${row.detail}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="gc-copy" style="margin-top:0.85rem;">Recipes in this build: ${this.escapeHtml(recipeSummary)}. Platform presets: ${this.escapeHtml(platformSummary)}.</div>
+                    </section>
+
+                    <section class="gc-section-card" data-pipeline-section="architecture">
+                        <div class="gc-eyebrow">Protocol Architecture</div>
+                        <div class="gc-title-row">
+                            <strong class="text-sm text-on-surface">Automate cinematic assembly with generative intelligence</strong>
+                            <span class="gc-setting-value">JSON in / out</span>
+                        </div>
+                        <p class="gc-copy" style="margin-top:0.45rem;">
+                            This view translates the architecture diagram into actual product surfaces. Every claimed capability is either linked into the GUI, exposed through the CLI, or labeled integration-ready when it depends on external adapters.
+                        </p>
+                        <div class="gc-architecture-grid" style="margin-top:1rem;">
+                            <div>
+                                <div class="gc-arch-frame">
+                                    <div class="gc-arch-title">Agent Layer</div>
+                                    <div class="gc-agent-row">
+                                        ${agentCards.map((card) => `
+                                            <div class="gc-agent-card">
+                                                <strong>${card.label}</strong>
+                                                <span>${card.sub}</span>
+                                                <span>${card.copy}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    <div class="gc-json-bridge">JSON in/out</div>
+                                </div>
+
+                                <div class="gc-core-board">
+                                    <div class="gc-core-header">GraphCut Core</div>
+                                    <div class="gc-core-columns">
+                                        ${Object.entries(featureColumns).map(([column, keys]) => `
+                                            <div class="gc-core-col">
+                                                <h4>${column}</h4>
+                                                <div class="gc-core-list">
+                                                    ${keys.map((key) => this.renderPipelineFeature(features[key], featureRoutes[key])).join('')}
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    <div class="gc-core-footer">
+                                        <div><strong style="color:#e2e2ea;">Generation Queue (Provider-agnostic)</strong></div>
+                                        <div class="gc-provider-row">
+                                            ${providers.map((provider) => `<span class="gc-provider-chip">${this.escapeHtml(provider)}</span>`).join('')}
+                                            <span class="gc-provider-chip">Adapters plug in</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <aside class="gc-interface-card" data-pipeline-section="inspector">
+                                <div class="gc-arch-title">Interface</div>
+                                <div class="gc-interface-preview"></div>
+                                <ul class="gc-interface-list">
+                                    <li><span class="material-symbols-outlined text-primary" style="font-size:16px;">check_circle</span><span><strong style="color:#e2e2ea;">Preview Surface</strong><br>Mapped to the existing preview panel and draft render flow.</span></li>
+                                    <li><span class="material-symbols-outlined text-primary" style="font-size:16px;">check_circle</span><span><strong style="color:#e2e2ea;">Node Inspector</strong><br>Live project graph snapshot from the current GUI state.</span></li>
+                                    <li><span class="material-symbols-outlined text-primary" style="font-size:16px;">check_circle</span><span><strong style="color:#e2e2ea;">Launch Dashboard</strong><br>Jump back into the editor surfaces that own each pipeline step.</span></li>
+                                </ul>
+                                <div class="flex flex-wrap gap-2">
+                                    <button class="topnav-panel-action px-3 py-2 rounded-lg bg-primary-container text-on-primary font-semibold" data-topnav-action="open-preview">Launch Dashboard</button>
+                                    <button class="topnav-panel-action px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant/20 text-on-surface" data-topnav-action="copy-inspector">Copy Node JSON</button>
+                                </div>
+                                <pre class="gc-json-view">${inspectorJson}</pre>
+                            </aside>
+                        </div>
+                    </section>
+
+                    <section class="gc-toolfit-panel" data-pipeline-section="toolfit">
+                        <div class="gc-eyebrow">Pick The Right Tool</div>
+                        <div class="gc-title-row">
+                            <strong class="text-sm text-on-surface">Technical placement for engineering clarity</strong>
+                            <span class="gc-setting-value">GraphCut highlighted</span>
+                        </div>
+                        <p class="gc-copy" style="margin-top:0.45rem;">
+                            GraphCut sits in the creator-outcomes / batch-processing quadrant: agent-first post-production automation, not a full streaming stack or a low-level NLE primitive layer.
+                        </p>
+                        <div class="gc-toolfit-chart" style="margin-top:1rem;">
+                            <div class="gc-toolfit-axis top">Creator Outcomes</div>
+                            <div class="gc-toolfit-axis bottom">Engine Primitives</div>
+                            <div class="gc-toolfit-axis left">Batch / Offline</div>
+                            <div class="gc-toolfit-axis right">Real-time / Streaming</div>
+
+                            <div class="gc-tool-node active" style="left:28%;top:28%;">
+                                <div class="dot">G</div>
+                                <strong>GraphCut</strong>
+                                <span>Agent-first creator automation</span>
+                            </div>
+                            <div class="gc-tool-node secondary" style="left:43%;top:38%;">
+                                <div class="dot">&lt;/&gt;</div>
+                                <strong>Remotion</strong>
+                                <span>Video as React code</span>
+                            </div>
+                            <div class="gc-tool-node other" style="left:74%;top:30%;">
+                                <div class="dot">C</div>
+                                <strong>ComfyUI</strong>
+                                <span>Generative graph workflows</span>
+                            </div>
+                            <div class="gc-tool-node muted" style="left:26%;top:49%;">
+                                <div class="dot"></div>
+                                <strong>auto-editor</strong>
+                                <span>Silence removal specialist</span>
+                            </div>
+                            <div class="gc-tool-node muted" style="left:22%;top:78%;">
+                                <div class="dot"></div>
+                                <strong>MLT</strong>
+                                <span>NLE engine primitives</span>
+                            </div>
+                            <div class="gc-tool-node muted" style="left:77%;top:82%;">
+                                <div class="dot"></div>
+                                <strong>GStreamer</strong>
+                                <span>Live media systems</span>
+                            </div>
+                        </div>
+
+                        <div class="gc-feature-grid" style="margin-top:1rem;">
+                            <article class="gc-feature-card" style="border-color:rgba(37,226,235,0.24);">
+                                <strong>Use GraphCut When...</strong>
+                                <p>You need an AI agent to go from raw footage or script to posted content without living in a full NLE. This is the autonomous rendering layer.</p>
+                            </article>
+                            <article class="gc-feature-card">
+                                <strong>Compose With...</strong>
+                                <p>ComfyUI for generation, Remotion for deterministic code-driven motion, and external storage or publish queues for deployment handoff.</p>
+                            </article>
+                            <article class="gc-feature-card" style="border-color:rgba(255, 107, 107, 0.18);">
+                                <strong>Use Something Else When...</strong>
+                                <p>You need real-time streaming, native Premiere interoperability, multitrack NLE semantics, or ultra-low-level media graph control.</p>
+                            </article>
+                        </div>
+                    </section>
+                </div>
+            `
+        };
+    }
+
+    renderPipelineFeature(feature, route = {}) {
+        if (!feature) return '';
+        const statusClass = feature.status === 'gui'
+            ? 'gc-status-gui'
+            : feature.status === 'cli'
+                ? 'gc-status-cli'
+                : 'gc-status-integration';
+        const statusLabel = feature.status === 'gui'
+            ? 'GUI'
+            : feature.status === 'cli'
+                ? 'CLI'
+                : 'Adapter';
+        const actionAttr = route.action ? `data-topnav-action="${route.action}"` : '';
+        const commandAttr = route.command ? `data-command="${this.escapeAttr(route.command)}"` : '';
+        return `
+            <button class="gc-core-item topnav-panel-action" style="width:100%; text-align:left;" ${actionAttr} ${commandAttr}>
+                <strong>${this.escapeHtml(feature.label)}</strong>
+                <span class="gc-status-badge ${statusClass}">${statusLabel}</span>
+            </button>
+        `;
+    }
+
+    buildNodeInspectorPayload() {
+        const project = this.state.project || {};
+        const sources = this.state.sources || {};
+        const clips = Array.isArray(this.state.clips) ? this.state.clips : [];
+        const activeClipIndex = Number.isInteger(this.state.activeClipIndex) ? this.state.activeClipIndex : null;
+        const selectedClip = activeClipIndex !== null ? clips[activeClipIndex] || null : null;
+        return {
+            project: {
+                name: project.name || null,
+                updated_at: project.updated_at || null,
+                active_scene: project.active_scene || null,
+                sources: Object.keys(sources).length,
+                clips: clips.length,
+            },
+            selection: {
+                active_clip_index: activeClipIndex,
+                selected_clip: selectedClip,
+            },
+            source_manifest: Object.entries(sources).slice(0, 8).map(([id, info]) => ({
+                id,
+                media_type: info.media_type,
+                duration_seconds: Number(info.duration_seconds || 0),
+            })),
+            overlays: this.state.overlays,
+            audio_mix: this.state.audioConfig,
+            pipeline: {
+                providers: this.state.pipelineCapabilities?.providers || [],
+                workflows: this.state.pipelineCapabilities?.workflows || [],
+            },
+        };
+    }
+
+    escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;');
+    }
+
+    escapeAttr(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('"', '&quot;')
+            .replaceAll('<', '&lt;');
     }
 
     async showHistoryPanel() {
@@ -462,6 +867,65 @@ class App {
                     document.getElementById('btn-share-project')?.click();
                     return;
                 }
+                if (action === 'copy-command') {
+                    const command = button.dataset.command || '';
+                    if (!command) return;
+                    await this.copyText(command, 'Pipeline command copied');
+                    return;
+                }
+                if (action === 'copy-inspector') {
+                    await this.copyText(JSON.stringify(this.buildNodeInspectorPayload(), null, 2), 'Node inspector JSON copied');
+                    return;
+                }
+                if (action === 'scroll-panel') {
+                    const section = button.dataset.section;
+                    if (!section) return;
+                    this.topNavPanel.body?.querySelector(`[data-pipeline-section="${section}"]`)?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                    return;
+                }
+                if (action === 'open-effects') {
+                    this.closeTopPanel();
+                    this.state.activeSidebar = 'effects';
+                    this.activateLibraryTab('effects');
+                    this.setStatus('Effects panel ready', 1800);
+                    return;
+                }
+                if (action === 'open-audio') {
+                    this.closeTopPanel();
+                    this.activateTab('audio');
+                    this.scrollIntoView('#tab-audio');
+                    this.setStatus('Audio controls ready', 1800);
+                    return;
+                }
+                if (action === 'open-overlays') {
+                    this.closeTopPanel();
+                    this.activateTab('overlays');
+                    this.scrollIntoView('#tab-overlays');
+                    this.setStatus('Overlay controls ready', 1800);
+                    return;
+                }
+                if (action === 'open-export') {
+                    this.closeTopPanel();
+                    this.activateTab('export');
+                    this.scrollIntoView('#tab-export');
+                    this.setStatus('Export controls ready', 1800);
+                    return;
+                }
+                if (action === 'open-preview') {
+                    this.closeTopPanel();
+                    this.scrollIntoView('#preview-container');
+                    this.setStatus('Preview surface ready', 1800);
+                    return;
+                }
+                if (action === 'open-transcript') {
+                    this.closeTopPanel();
+                    this.scrollIntoView('#transcript-content');
+                    this.setStatus('Transcript editor ready', 1800);
+                    return;
+                }
                 if (action === 'open-history') {
                     this.activateTab('export');
                     this.closeTopPanel();
@@ -473,6 +937,20 @@ class App {
                 }
             });
         });
+    }
+
+    async copyText(text, successMessage = 'Copied to clipboard') {
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+                this.setStatus(successMessage, 2200);
+                return true;
+            }
+        } catch (err) {
+            console.warn('Clipboard copy failed, falling back to prompt.', err);
+        }
+        window.prompt('Copy this text:', text);
+        return false;
     }
 
     updateProgress({ action = 'Working', progress = 0, eta = '--:--', speed = '0.0' } = {}) {

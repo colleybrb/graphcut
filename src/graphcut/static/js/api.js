@@ -40,6 +40,7 @@ export class GraphCutAPI {
 
     // -- Project --
     getProject() { return this._fetch('/project'); }
+    getPipelineCapabilities() { return this._fetch('/pipeline/capabilities'); }
 
     // -- Sources --
     getSources() { return this._fetch('/sources'); }
@@ -59,6 +60,13 @@ export class GraphCutAPI {
             method: 'POST',
             body: formData
         }).then(res => res.json());
+    }
+
+    importSourceUrl(url, sourceId = null) {
+        return this._fetch('/sources/import-url', {
+            method: 'POST',
+            body: JSON.stringify({ url, source_id: sourceId })
+        });
     }
 
     removeSource(sourceId, options = {}) {
@@ -92,6 +100,8 @@ export class GraphCutAPI {
     getOverlays() { return this._fetch('/overlays'); }
     updateWebcam(payload) { return this._fetch('/overlays/webcam', { method: 'PUT', body: JSON.stringify(payload) }); }
     deleteWebcam() { return this._fetch('/overlays/webcam', { method: 'DELETE' }); }
+    updateSticker(payload) { return this._fetch('/overlays/sticker', { method: 'PUT', body: JSON.stringify(payload) }); }
+    deleteSticker() { return this._fetch('/overlays/sticker', { method: 'DELETE' }); }
     updateCaptionStyle(payload) { return this._fetch('/overlays/caption_style', { method: 'PUT', body: JSON.stringify(payload) }); }
     setRoles(payload) { return this._fetch('/project/roles', { method: 'PUT', body: JSON.stringify(payload) }); }
     

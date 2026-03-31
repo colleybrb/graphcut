@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from graphcut.models import ClipRef, ExportPreset, MediaInfo, ProjectManifest
+from graphcut.models import ClipRef, ExportPreset, MediaInfo, ProjectManifest, StickerOverlay
 
 
 def test_media_info_creation():
@@ -36,6 +36,7 @@ def test_project_manifest_defaults():
     assert manifest.scenes == {}
     assert manifest.active_scene is None
     assert manifest.burn_captions is True
+    assert manifest.sticker is None
     assert len(manifest.export_presets) == 3
     assert manifest.export_presets[0].name == "YouTube"
 
@@ -50,6 +51,7 @@ def test_project_manifest_yaml_roundtrip(tmp_project_dir: Path):
         media_type="video",
     )
     manifest.clip_order.append(ClipRef(source_id="clip1"))
+    manifest.sticker = StickerOverlay(mode="emoji", text="🔥", position="top-right")
     
     yaml_path = tmp_project_dir / "project.yaml"
     manifest.save_yaml(yaml_path)
@@ -62,6 +64,8 @@ def test_project_manifest_yaml_roundtrip(tmp_project_dir: Path):
     assert "clip1" in loaded.sources
     assert loaded.clip_order[0].source_id == "clip1"
     assert loaded.sources["clip1"].file_path == Path("/tmp/test.mp4")
+    assert loaded.sticker is not None
+    assert loaded.sticker.text == "🔥"
 
 
 def test_clip_ref_defaults():

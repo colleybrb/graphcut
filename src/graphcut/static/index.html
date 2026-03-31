@@ -55,6 +55,7 @@
         <span class="text-xl font-extrabold tracking-tighter text-[#25e2eb] drop-shadow-[0_0_10px_rgba(37,226,235,0.3)]">GraphCut</span>
         <nav class="hidden md:flex gap-6 font-['Inter'] text-sm tracking-tight font-medium">
             <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="projects">Project</button>
+            <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="pipeline">Pipeline</button>
             <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="assets">Assets</button>
             <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="scenes">Scenes</button>
             <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="history">History</button>
@@ -71,7 +72,7 @@
 </header>
 
 <div class="fixed top-14 left-20 right-0 z-40 px-6 pt-4 pointer-events-none" id="topnav-panel-wrap" style="display:none;">
-    <div class="max-w-4xl ml-0 mr-auto bg-surface-container-high/95 backdrop-blur-xl border border-outline-variant/20 rounded-2xl shadow-2xl pointer-events-auto overflow-hidden" id="topnav-panel">
+    <div class="max-w-5xl max-h-[calc(100vh-6.5rem)] ml-0 mr-auto bg-surface-container-high/95 backdrop-blur-xl border border-outline-variant/20 rounded-2xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col" id="topnav-panel">
         <div class="px-5 py-4 border-b border-outline-variant/10 flex items-center justify-between">
             <div>
                 <div class="text-[10px] uppercase tracking-[0.24em] text-on-surface-variant" id="topnav-panel-eyebrow">Workspace</div>
@@ -81,7 +82,7 @@
                 <span class="material-symbols-outlined text-lg">close</span>
             </button>
         </div>
-        <div class="p-5 text-sm text-on-surface-variant" id="topnav-panel-body"></div>
+        <div class="p-5 text-sm text-on-surface-variant overflow-y-auto" id="topnav-panel-body"></div>
     </div>
 </div>
 
@@ -113,7 +114,14 @@
     <section class="w-[280px] bg-surface-container-low border-r border-outline-variant/10 flex flex-col">
         <div class="p-4 flex justify-between items-center border-b border-outline-variant/10">
             <h2 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Library</h2>
-            <button id="btn-add-source" class="text-primary hover:text-primary-container transition-colors"><span class="material-symbols-outlined text-sm">add_circle</span></button>
+            <div class="flex items-center gap-2">
+                <button id="btn-import-source-url" class="text-on-surface-variant hover:text-primary transition-colors" title="Import direct public media URL">
+                    <span class="material-symbols-outlined text-sm">link</span>
+                </button>
+                <button id="btn-add-source" class="text-primary hover:text-primary-container transition-colors" title="Upload files">
+                    <span class="material-symbols-outlined text-sm">add_circle</span>
+                </button>
+            </div>
         </div>
         <div class="flex-1 overflow-y-auto p-3 space-y-4" id="source-list">
             <!-- Sources injected by js -->

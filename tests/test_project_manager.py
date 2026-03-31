@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from graphcut.models import ClipRef, MediaInfo, ProjectManifest
+from graphcut.models import ClipRef, MediaInfo, ProjectManifest, SceneConfig, StickerOverlay, WebcamOverlay
 from graphcut.project_manager import ProjectManager
 
 
@@ -17,6 +17,14 @@ def test_remove_source_cleans_manifest_references(tmp_project_dir: Path):
     manifest.clip_order = [ClipRef(source_id="clip")]
     manifest.narration = "clip"
     manifest.music = "clip"
+    manifest.webcam = WebcamOverlay(source_id="clip")
+    manifest.sticker = StickerOverlay(mode="asset", source_id="clip")
+    manifest.scenes["Scene A"] = SceneConfig(
+        webcam=WebcamOverlay(source_id="clip"),
+        sticker=StickerOverlay(mode="asset", source_id="clip"),
+        narration="clip",
+        music="clip",
+    )
 
     deleted = ProjectManager.remove_source(manifest, "clip")
 
@@ -25,6 +33,12 @@ def test_remove_source_cleans_manifest_references(tmp_project_dir: Path):
     assert manifest.clip_order == []
     assert manifest.narration is None
     assert manifest.music is None
+    assert manifest.webcam is None
+    assert manifest.sticker is None
+    assert manifest.scenes["Scene A"].webcam is None
+    assert manifest.scenes["Scene A"].sticker is None
+    assert manifest.scenes["Scene A"].narration is None
+    assert manifest.scenes["Scene A"].music is None
 
 
 def test_remove_source_can_delete_project_file(tmp_project_dir: Path):
