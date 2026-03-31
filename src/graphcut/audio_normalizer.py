@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import os
 from pathlib import Path
 
 from graphcut.ffmpeg_executor import FFmpegExecutor
@@ -39,7 +40,10 @@ class AudioNormalizer:
             "Normalizing %s to %.1f LUFS (TP %.1f dB)...",
             input_path.name, target_lufs, true_peak,
         )
-        
+
+        previous_ffmpeg_path = os.environ.get("FFMPEG_PATH")
+        os.environ["FFMPEG_PATH"] = str(self.executor.ffmpeg_path)
+
         try:
             from ffmpeg_normalize import FFmpegNormalize
             norm_kwargs = {
@@ -65,18 +69,30 @@ class AudioNormalizer:
                 )
 
             norm = FFmpegNormalize(**supported_kwargs)
-            
+
             norm.add_media_file(str(input_path), str(output_path))
             norm.run_normalization()
             logger.info("Normalization complete.")
             return output_path
-            
+
         except ImportError:
             logger.warning(
                 "ffmpeg-normalize not found. Falling back to single-pass FFmpeg loudnorm."
             )
             self._fallback_normalize(input_path, output_path, target_lufs, true_peak)
             return output_path
+        except Exception as e:
+            logger.warning(
+                "ffmpeg-normalize failed (%s). Falling back to single-pass FFmpeg loudnorm.",
+                e,
+            )
+            self._fallback_normalize(input_path, output_path, target_lufs, true_peak)
+            return output_path
+        finally:
+            if previous_ffmpeg_path is None:
+                os.environ.pop("FFMPEG_PATH", None)
+            else:
+                os.environ["FFMPEG_PATH"] = previous_ffmpeg_path
 
     def _fallback_normalize(
         self, input_path: Path, output_path: Path, target_lufs: float, true_peak: float
