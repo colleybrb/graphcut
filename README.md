@@ -1,6 +1,6 @@
 <div align="center">
   <br/>
-  <img src="assets/graphcutherobanner.png" alt="GraphCut — Agent-first video engine. Raw footage in, platform-ready content out." width="860" />
+  <img src="assets/graphcut_header.png" alt="GraphCut — Agent-first video engine. Raw footage in, platform-ready content out." width="860" />
   <br/><br/>
 
   # GraphCut 🎬✂️
