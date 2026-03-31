@@ -87,3 +87,13 @@ def test_scale_supports_extra_params():
 
     assert out == "vout0"
     assert fg.nodes[0].compile() == "[v0]scale=w=1920:h=1080:force_original_aspect_ratio=decrease[vout0]"
+
+
+def test_setsar_generates_valid_filter():
+    """Verify SAR normalization can be added to the filtergraph."""
+    fg = FilterGraph()
+
+    out = fg.setsar("v0", "1")
+
+    assert out == "vout0"
+    assert fg.nodes[0].compile() == "[v0]setsar=sar=1[vout0]"
