@@ -126,4 +126,5 @@ def test_renderer_normalizes_mixed_clip_sizes_before_concat(tmp_path: Path):
     graph_str = executor.args[executor.args.index("-filter_complex") + 1]
     assert "scale=w=1902:h=1060:force_original_aspect_ratio=decrease" in graph_str
     assert "pad=w=1902:h=1060" in graph_str
+    assert "setsar=sar=1" in graph_str
     assert "concat=n=2:v=1:a=1" in graph_str

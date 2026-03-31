@@ -175,7 +175,7 @@ class Renderer:
             src_w = info.width or timeline_width
             src_h = info.height or timeline_height
             if src_w == timeline_width and src_h == timeline_height:
-                return video_label
+                return fg.setsar(video_label, "1")
 
             scaled = fg.scale(
                 video_label,
@@ -183,7 +183,8 @@ class Renderer:
                 timeline_height,
                 force_original_aspect_ratio="decrease",
             )
-            return fg.pad(scaled, timeline_width, timeline_height)
+            padded = fg.pad(scaled, timeline_width, timeline_height)
+            return fg.setsar(padded, "1")
         
         # 1. Add inputs
         input_indices: dict[str, int] = {}

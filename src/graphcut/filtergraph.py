@@ -204,6 +204,18 @@ class FilterGraph:
         self.nodes.append(node)
         return vout
 
+    def setsar(self, label: str, ratio: str | int = "1") -> str:
+        """Normalize sample aspect ratio for downstream concat/encode steps."""
+        vout = self._next_v_label()
+        node = FilterNode(
+            filter_name="setsar",
+            inputs=[label],
+            outputs=[vout],
+            params={"sar": ratio},
+        )
+        self.nodes.append(node)
+        return vout
+
     def volume(self, label: str, gain_db: float) -> str:
         """Add a volume filter to adjust audio gain in dB."""
         aout = self._next_a_label()
