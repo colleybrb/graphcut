@@ -1,9 +1,18 @@
 """Unit tests for the export logic."""
 
+from pathlib import Path
+
 import pytest
 from graphcut.exporter import Exporter
 from graphcut.models import ExportPreset
 from graphcut.ffmpeg_executor import FFmpegExecutor
+
+
+def _touch_binary(path: Path) -> Path:
+    path.write_text("")
+    path.chmod(0o755)
+    return path
+
 
 def test_letterbox_dimensions():
     """Verify 16:9 content letterboxed to 1:1 has correct padding logic."""
@@ -60,9 +69,12 @@ def test_quality_params():
     assert "slow" in f_params
 
 
-def test_encoder_detection_fallback(monkeypatch):
+def test_encoder_detection_fallback(monkeypatch, tmp_path: Path):
     """Verify CPU fallback when HW not available."""
-    executor = FFmpegExecutor()
+    executor = FFmpegExecutor(
+        ffmpeg_path=_touch_binary(tmp_path / "ffmpeg"),
+        ffprobe_path=_touch_binary(tmp_path / "ffprobe"),
+    )
     
     # Mock fallback directly
     def mock_detect(*args):

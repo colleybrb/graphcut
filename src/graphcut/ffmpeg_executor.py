@@ -52,17 +52,18 @@ class FFmpegExecutor:
         ffprobe_path: str | Path | None = None,
     ) -> None:
         self.ffmpeg_path = Path(ffmpeg_path) if ffmpeg_path else self._find_binary("ffmpeg")
-        self.ffprobe_path = Path(ffprobe_path) if ffprobe_path else self._find_binary("ffprobe")
+        self.ffprobe_path = Path(ffprobe_path) if ffprobe_path else self._find_binary("ffprobe", required=False)
         self._encoder_cache: dict[str, bool] | None = None
+        self._encoder_init_cache: dict[str, bool] = {}
 
         logger.debug("FFmpeg: %s", self.ffmpeg_path)
         logger.debug("ffprobe: %s", self.ffprobe_path)
 
     @staticmethod
-    def _find_binary(name: str) -> Path:
+    def _find_binary(name: str, required: bool = True) -> Path | None:
         """Locate a binary on the system PATH."""
         location = shutil.which(name)
-        
+
         # Fallback for macOS where environments (IDEs/services) often strip Homebrew PATH
         if location is None:
             for fallback_dir in ["/opt/homebrew/bin", "/usr/local/bin"]:
@@ -71,14 +72,13 @@ class FFmpegExecutor:
                     location = str(fallback_path)
                     break
 
-        # Fallback for Windows/Corporate users using python static binaries
         if location is None:
             try:
                 import static_ffmpeg
                 import urllib.request
-                
+
                 sys_proxies = urllib.request.getproxies()
-                
+
                 # Manual CLI override passed from `serve --proxy`
                 manual_override = os.environ.get("GRAPHCUT_HTTP_PROXY")
                 if manual_override:
@@ -93,25 +93,44 @@ class FFmpegExecutor:
                         proxy_env_updates.setdefault(key, os.environ.get(key))
                         os.environ[key] = proxy
 
-                try: # add_paths() mutates os.environ["PATH"] inside Python
-                    static_ffmpeg.add_paths()
-                finally: # Restore temporary proxy environment overrides
+                try:
+                    run_api = getattr(static_ffmpeg, "run", None)
+                    resolver = getattr(run_api, "get_or_fetch_platform_executables_else_raise", None)
+                    if callable(resolver):
+                        ffmpeg_path, ffprobe_path = resolver()
+                        location = {
+                            "ffmpeg": ffmpeg_path,
+                            "ffprobe": ffprobe_path,
+                        }.get(name)
+
+                    if location is None:
+                        # Backward-compatible fallback for older static-ffmpeg releases.
+                        static_ffmpeg.add_paths()
+                        location = shutil.which(name)
+                finally:
                     for key, previous in proxy_env_updates.items():
                         if previous is None:
                             os.environ.pop(key, None)
                         else:
                             os.environ[key] = previous
-                    
-                location = shutil.which(name)
             except Exception as e:
                 logger.warning(f"Failed to bootstrap static FFmpeg fallback: {e}")
-                pass
+                location = None
 
         if location is None:
+            if not required:
+                return None
             raise FFmpegError(
-                f"'{name}' not found on PATH or common Homebrew directories. Install FFmpeg: https://ffmpeg.org/download.html"
+                f"'{name}' not found on PATH or common Homebrew directories, and static-ffmpeg could not provide it. "
+                "Install FFmpeg or add the Python package fallback with `pip install static-ffmpeg`."
             )
         return Path(location)
+
+    def _require_ffprobe(self) -> Path:
+        """Resolve ffprobe lazily so render-only workflows can still run."""
+        if self.ffprobe_path is None:
+            self.ffprobe_path = self._find_binary("ffprobe")
+        return self.ffprobe_path
 
     def detect_encoders(self) -> dict[str, bool]:
         """Detect available H.264 and audio encoders.
@@ -164,13 +183,13 @@ class FFmpegExecutor:
         available = self.detect_encoders()
         requested = (preferred or os.environ.get("GRAPHCUT_VIDEO_ENCODER") or "").strip()
         if requested:
-            if available.get(requested, False):
+            if available.get(requested, False) and self._is_encoder_usable(requested):
                 logger.debug("Selected requested encoder: %s", requested)
                 return requested
-            logger.warning("Requested video encoder '%s' is unavailable; falling back to auto-detect.", requested)
+            logger.warning("Requested video encoder '%s' is unavailable or unusable; falling back to auto-detect.", requested)
 
         for encoder in self._ENCODER_PRIORITY:
-            if available.get(encoder, False):
+            if available.get(encoder, False) and self._is_encoder_usable(encoder):
                 logger.debug("Selected encoder: %s", encoder)
                 return encoder
 
@@ -195,13 +214,72 @@ class FFmpegExecutor:
             "could not open encoder",
             "error while opening encoder",
             "open encode session failed",
+            "cannot create compression session",
             "no capable devices found",
             "cannot load nvcuda",
             "device not available",
             "initialization failed",
             "unsupported device",
+            "invalid argument",
         )
         return any(marker in stderr for marker in failure_markers)
+
+    def _is_encoder_usable(self, encoder: str) -> bool:
+        """Return True when the encoder is both advertised and can be initialized."""
+        if not self.is_hardware_encoder(encoder):
+            return True
+
+        cached = self._encoder_init_cache.get(encoder)
+        if cached is not None:
+            return cached
+
+        usable = self._probe_encoder_init(encoder)
+        self._encoder_init_cache[encoder] = usable
+        return usable
+
+    def _probe_encoder_init(self, encoder: str) -> bool:
+        """Run a tiny synthetic encode to verify that a hardware encoder can start."""
+        cmd = [
+            str(self.ffmpeg_path),
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=64x64:rate=1",
+            "-frames:v",
+            "1",
+            "-an",
+            "-c:v",
+            encoder,
+        ]
+        if "videotoolbox" in encoder:
+            cmd.extend(["-allow_sw", "1"])
+        cmd.extend(["-f", "null", "-"])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+            )
+        except (subprocess.TimeoutExpired, OSError) as e:
+            logger.warning("Failed to probe encoder %s: %s", encoder, e)
+            return False
+
+        if result.returncode == 0:
+            return True
+
+        logger.warning(
+            "Skipping unusable hardware encoder %s: %s",
+            encoder,
+            (result.stderr or "").strip()[-300:],
+        )
+        return False
 
     def run_ffprobe(self, file_path: Path) -> dict[str, Any]:
         """Run ffprobe on a file and return parsed JSON output.
@@ -218,8 +296,10 @@ class FFmpegExecutor:
         if not file_path.exists():
             raise FFmpegError(f"File not found: {file_path}")
 
+        ffprobe_path = self._require_ffprobe()
+
         cmd = [
-            str(self.ffprobe_path),
+            str(ffprobe_path),
             "-v", "quiet",
             "-print_format", "json",
             "-show_format",

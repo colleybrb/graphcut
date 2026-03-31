@@ -99,12 +99,12 @@ class Exporter:
             
             if preset.fit_mode == "letterbox":
                 # Scale to fit inside target WxH maintaining aspect ratio, then pad
-                v1 = fg.scale(final_v, f"'{tw}'", f"'{th}':force_original_aspect_ratio=decrease")
+                v1 = fg.scale(final_v, tw, th, force_original_aspect_ratio="decrease")
                 v2 = fg.pad(v1, tw, th)
                 return v2
             elif preset.fit_mode == "crop":
                 # Scale to cover target WxH maintaining aspect ratio, then crop center
-                v1 = fg.scale(final_v, f"'{tw}'", f"'{th}':force_original_aspect_ratio=increase")
+                v1 = fg.scale(final_v, tw, th, force_original_aspect_ratio="increase")
                 v2 = fg.crop_center(v1, tw, th)
                 return v2
             else: # stretch
