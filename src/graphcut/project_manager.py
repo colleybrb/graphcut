@@ -164,6 +164,18 @@ class ProjectManager:
             manifest.music = None
         if manifest.webcam and manifest.webcam.source_id == source_id:
             manifest.webcam = None
+        if manifest.sticker and manifest.sticker.source_id == source_id:
+            manifest.sticker = None
+
+        for scene in manifest.scenes.values():
+            if scene.webcam and scene.webcam.source_id == source_id:
+                scene.webcam = None
+            if scene.sticker and scene.sticker.source_id == source_id:
+                scene.sticker = None
+            if scene.narration == source_id:
+                scene.narration = None
+            if scene.music == source_id:
+                scene.music = None
 
         if delete_file:
             project_root = project_dir.resolve()

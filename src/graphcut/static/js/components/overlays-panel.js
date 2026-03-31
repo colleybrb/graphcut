@@ -30,17 +30,19 @@ export class OverlaysPanel {
 
         const capStyle = captionStyle?.style || 'clean';
         const capPos = captionStyle?.position || 'bottom';
+        const webcamUnavailable = videoSources.length === 0 && !webcamEnabled;
 
         this.container.innerHTML = `
             <div class="form-group" style="flex-direction:row;align-items:center;justify-content:space-between">
                 <label style="margin:0">Webcam Overlay</label>
-                <input type="checkbox" id="webcam-enabled" ${webcamEnabled ? 'checked' : ''} style="width:20px;height:20px;">
+                <input type="checkbox" id="webcam-enabled" ${webcamEnabled ? 'checked' : ''} ${webcamUnavailable ? 'disabled' : ''} style="width:20px;height:20px;">
             </div>
+            ${webcamUnavailable ? '<div style="margin-top:-8px;color:var(--text-muted);font-size:0.8rem;">Add a video source to enable webcam picture-in-picture.</div>' : ''}
 
             <div class="form-group">
                 <label>Webcam Source</label>
                 <select id="webcam-source-select" class="form-control" ${webcamEnabled ? '' : 'disabled'}>
-                    <option value="">None</option>
+                    <option value="">${videoSources.length > 0 ? 'Choose a video source' : 'No video sources available'}</option>
                     ${videoSources.map(id => `<option value="${this._escapeAttr(id)}" ${id === webcamSourceId ? 'selected' : ''}>${this._escape(id)}</option>`).join('')}
                 </select>
             </div>
@@ -105,11 +107,35 @@ export class OverlaysPanel {
         const posEl = this.container.querySelector('#webcam-position');
         const scaleEl = this.container.querySelector('#webcam-scale');
         const scaleLbl = this.container.querySelector('#lbl-webcam-scale');
+        const videoSources = Object.entries(this.app.state.sources || {})
+            .filter(([, info]) => info && info.media_type === 'video')
+            .map(([id]) => id);
 
         const setWebcamEnabled = (on) => {
             if (srcEl) srcEl.disabled = !on;
             if (posEl) posEl.disabled = !on;
             if (scaleEl) scaleEl.disabled = !on;
+        };
+
+        const chooseDefaultWebcamSource = () => {
+            const activeClip = Number.isInteger(this.app.state.activeClipIndex)
+                ? this.app.state.clips?.[this.app.state.activeClipIndex]
+                : null;
+            if (activeClip?.source_id && videoSources.includes(activeClip.source_id)) {
+                return activeClip.source_id;
+            }
+            return videoSources[0] || '';
+        };
+
+        const applyWebcam = () => {
+            debounce(async () => {
+                try {
+                    await this._applyWebcam();
+                    this.app.setStatus('Webcam overlay updated', 1800);
+                } catch (err) {
+                    alert(err.message || 'Failed to update webcam overlay.');
+                }
+            });
         };
 
         enabledEl?.addEventListener('change', async (e) => {
@@ -126,15 +152,24 @@ export class OverlaysPanel {
                 });
                 return;
             }
-            // If enabling, immediately apply with current selections.
-            debounce(() => this._applyWebcam());
+            if (srcEl && !srcEl.value) {
+                const fallback = chooseDefaultWebcamSource();
+                if (!fallback) {
+                    e.target.checked = false;
+                    setWebcamEnabled(false);
+                    alert('Add a video source before enabling the webcam overlay.');
+                    return;
+                }
+                srcEl.value = fallback;
+            }
+            applyWebcam();
         });
 
-        srcEl?.addEventListener('change', () => debounce(() => this._applyWebcam()));
-        posEl?.addEventListener('change', () => debounce(() => this._applyWebcam()));
+        srcEl?.addEventListener('change', () => applyWebcam());
+        posEl?.addEventListener('change', () => applyWebcam());
         scaleEl?.addEventListener('input', (e) => {
             if (scaleLbl) scaleLbl.textContent = Number(e.target.value).toFixed(2);
-            debounce(() => this._applyWebcam());
+            applyWebcam();
         });
 
         const capStyleEl = this.container.querySelector('#caption-style');
@@ -196,9 +231,7 @@ export class OverlaysPanel {
 
         const sourceId = this.container.querySelector('#webcam-source-select')?.value || '';
         if (!sourceId) {
-            await this.app.api.deleteWebcam();
-            await this.app.refreshState();
-            return;
+            throw new Error('Choose a video source for the webcam overlay.');
         }
 
         const payload = {
@@ -230,4 +263,3 @@ export class OverlaysPanel {
         return String(s).replaceAll('"', '&quot;');
     }
 }
-

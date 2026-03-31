@@ -1,144 +1,255 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="dark" lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="GraphCut — Local-first video editor with automation-first workflow">
     <title>GraphCut Editor</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/editor.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains+Mono', monospace; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ease-out-expo { transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1); }
+        .dot-grid {
+            background-image: radial-gradient(circle, #3b494a 1px, transparent 1px);
+            background-size: 24px 24px;
+            opacity: 0.05;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-error": "#690005", "surface-container-high": "#282a30", "surface-container": "#1d2025",
+                        "on-primary": "#003739", "on-background": "#e2e2ea", "inverse-on-surface": "#2e3036",
+                        "surface": "#111319", "on-surface": "#e2e2ea", "on-error-container": "#ffdad6",
+                        "error": "#ffb4ab", "surface-tint": "#0fdce5", "primary": "#95f9ff",
+                        "surface-dim": "#111319", "on-surface-variant": "#bac9ca", "surface-container-lowest": "#0c0e13",
+                        "primary-container": "#25e2eb", "surface-container-highest": "#33353b", "background": "#111319",
+                        "surface-variant": "#33353b", "on-primary-container": "#006165", "secondary": "#9ad0d3",
+                        "surface-bright": "#37393f", "outline": "#849494", "on-secondary": "#003739",
+                        "surface-container-low": "#191c21", "secondary-container": "#165154", "outline-variant": "#3b494a"
+                    },
+                    fontFamily: { "headline": ["Inter"], "body": ["Inter"], "label": ["Inter"] },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
 </head>
-<body>
-    <header class="app-header">
-        <div class="logo">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
-            <h1>GraphCut</h1>
-        </div>
-        <div class="header-controls">
-            <span id="save-status">All changes saved</span>
-        </div>
-    </header>
+<body class="bg-surface-container-lowest text-on-surface selection:bg-primary-container selection:text-on-primary">
+<div class="fixed inset-0 dot-grid pointer-events-none"></div>
 
-    <main class="editor-grid">
-        <!-- Left Sidebar: Media Management -->
-        <aside class="left-panel">
-            <div class="panel-section source-panel">
-                <div class="section-header">
-                    <h2>Library</h2>
-                    <button class="btn btn-icon btn-sm" id="btn-add-source" title="Import Media">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
-                </div>
-                <div class="tabs tabs-subpanel">
-                    <button class="tab-btn active" data-library-tab="media">Media</button>
-                    <button class="tab-btn" data-library-tab="effects">Effects</button>
-                </div>
-                <div class="source-list" id="source-list">
-                    <!-- Source items injected here -->
-                </div>
-                <div class="source-list" id="effects-list" style="display:none;">
-                    <!-- Effects injected here -->
-                </div>
-            </div>
-        </aside>
-
-        <!-- Center: Primary Interaction Surface -->
-        <section class="center-panel">
-            <div class="preview-panel" id="preview-container">
-                <div class="placeholder-preview">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="opacity:0.3">
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                    <span>No Preview Available</span>
-                    <button class="btn btn-primary mt-sm" id="btn-render-preview">Render Preview</button>
-                </div>
-                <!-- <video> injected when preview rendered -->
-            </div>
-            
-            <div class="transcript-panel">
-                <div class="panel-toolbar">
-                    <h2>Transcript Editor</h2>
-                    <div class="toolbar-actions">
-                        <button class="btn btn-sm btn-outline" id="btn-clear-cuts">Clear Cuts</button>
-                        <button class="btn btn-sm btn-primary" id="btn-apply-cuts">Apply Cuts</button>
-                    </div>
-                </div>
-                <div class="transcript-content" id="transcript-content">
-                    <div class="empty-state">Select a clip or run transcription to edit text.</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Right Sidebar: Configs & Export -->
-        <aside class="right-panel">
-            <div class="tabs">
-                <button class="tab-btn active" data-tab="audio">Audio</button>
-                <button class="tab-btn" data-tab="overlays">Overlays</button>
-                <button class="tab-btn" data-tab="scenes">Scenes</button>
-                <button class="tab-btn" data-tab="export">Export</button>
-            </div>
-            
-            <div class="tab-content active" id="tab-audio">
-                <!-- Audio settings injected here -->
-            </div>
-            
-            <div class="tab-content" id="tab-overlays">
-                <!-- Overlays injected here -->
-            </div>
-
-            <div class="tab-content" id="tab-scenes">
-                <!-- Scenes injected here -->
-            </div>
-            
-            <div class="tab-content" id="tab-export">
-                <!-- Export controls injected here -->
-            </div>
-        </aside>
-
-        <section class="bottom-panel">
-            <div class="panel-section clip-panel">
-                <div class="section-header">
-                    <h2>Timeline</h2>
-                    <div style="display:flex; align-items:center; gap:10px; min-width:180px;">
-                        <label for="timeline-zoom" style="font-size:0.68rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;">Zoom</label>
-                        <input type="range" id="timeline-zoom" min="0.75" max="1.6" step="0.05" value="1">
-                    </div>
-                </div>
-                <div class="clip-list" id="clip-list">
-                    <!-- Clip timeline injected here -->
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <footer class="app-footer" id="app-footer">
-        <div class="status-bar">
-            Ready
-        </div>
-        <div class="progress-container" style="display: none;" id="global-progress">
-            <div class="progress-text" id="progress-label">Rendering... 0%</div>
-            <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
-            </div>
-            <div class="progress-eta" id="progress-eta">ETA: --:--</div>
-        </div>
-    </footer>
-
-    <div class="modal-root" id="trim-modal-root" style="display:none;">
-        <div class="modal-backdrop" data-modal-close="1"></div>
-        <div class="modal-card">
-            <div class="modal-header">
-                <div class="modal-title" id="trim-modal-title">Trim</div>
-                <button class="btn btn-sm btn-icon" id="trim-modal-close" title="Close">&times;</button>
-            </div>
-            <div class="modal-body" id="trim-modal-body"></div>
+<!-- TopNavBar -->
+<header class="fixed top-0 z-50 w-full h-14 bg-[#111319]/80 backdrop-blur-xl border-b border-[#3b494a]/15 flex justify-between items-center px-6 shadow-2xl">
+    <div class="flex items-center gap-8">
+        <span class="text-xl font-extrabold tracking-tighter text-[#25e2eb] drop-shadow-[0_0_10px_rgba(37,226,235,0.3)]">GraphCut</span>
+        <nav class="hidden md:flex gap-6 font-['Inter'] text-sm tracking-tight font-medium">
+            <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="projects">Project</button>
+            <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="assets">Assets</button>
+            <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="scenes">Scenes</button>
+            <button class="top-nav-link text-[#bac9ca] hover:text-[#e2e2ea] transition-all duration-300 ease-out-expo pb-1 border-b-2 border-transparent" data-topnav="history">History</button>
+        </nav>
+    </div>
+    <div class="flex items-center gap-4">
+        <span id="save-status" class="text-xs text-on-surface-variant mr-2">Ready</span>
+        <button id="btn-share-project" class="px-4 py-1.5 bg-[#282a30] text-[#e2e2ea] text-sm font-medium rounded-md hover:bg-[#33353b] transition-all">Share</button>
+        <button id="btn-header-export" class="px-5 py-1.5 bg-primary-container text-on-primary text-sm font-bold rounded-md shadow-[0_0_15px_rgba(37,226,235,0.25)] hover:scale-105 active:opacity-80 transition-all">Export</button>
+        <div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center border border-outline-variant/30 ml-2">
+            <span class="material-symbols-outlined text-sm">person</span>
         </div>
     </div>
+</header>
 
-    <!-- Modules -->
-    <script type="module" src="/js/api.js"></script>
-    <script type="module" src="/js/app.js"></script>
+<div class="fixed top-14 left-20 right-0 z-40 px-6 pt-4 pointer-events-none" id="topnav-panel-wrap" style="display:none;">
+    <div class="max-w-4xl ml-0 mr-auto bg-surface-container-high/95 backdrop-blur-xl border border-outline-variant/20 rounded-2xl shadow-2xl pointer-events-auto overflow-hidden" id="topnav-panel">
+        <div class="px-5 py-4 border-b border-outline-variant/10 flex items-center justify-between">
+            <div>
+                <div class="text-[10px] uppercase tracking-[0.24em] text-on-surface-variant" id="topnav-panel-eyebrow">Workspace</div>
+                <div class="text-sm font-bold text-on-surface" id="topnav-panel-title">Project</div>
+            </div>
+            <button id="topnav-panel-close" class="text-on-surface-variant hover:text-on-surface transition-colors">
+                <span class="material-symbols-outlined text-lg">close</span>
+            </button>
+        </div>
+        <div class="p-5 text-sm text-on-surface-variant" id="topnav-panel-body"></div>
+    </div>
+</div>
+
+<main class="pt-14 h-screen flex overflow-hidden">
+    <!-- SideNavBar (Iconic Rail) -->
+    <aside class="w-20 bg-[#0c0e13] border-r border-[#3b494a]/15 flex flex-col items-center py-4 gap-6 z-40">
+        <div class="w-10 h-10 bg-surface-container-high rounded-xl flex items-center justify-center text-primary-container mb-4">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">movie_edit</span>
+        </div>
+        <button class="sidebar-icon active flex flex-col items-center gap-1 w-full py-3 text-[#849494] hover:text-[#95f9ff] hover:bg-[#191c21] transition-all border-l-2 border-transparent" data-sidebar="media">
+            <span class="material-symbols-outlined">folder_open</span>
+            <span class="text-[10px] uppercase tracking-wider font-bold">Media</span>
+        </button>
+        <button class="sidebar-icon flex flex-col items-center gap-1 w-full py-3 text-[#849494] hover:text-[#95f9ff] hover:bg-[#191c21] transition-all border-l-2 border-transparent" data-sidebar="effects">
+            <span class="material-symbols-outlined">auto_fix_high</span>
+            <span class="text-[10px] uppercase tracking-wider font-medium">Effects</span>
+        </button>
+        <button class="sidebar-icon flex flex-col items-center gap-1 w-full py-3 text-[#849494] hover:text-[#95f9ff] hover:bg-[#191c21] transition-all border-l-2 border-transparent" data-sidebar="audio">
+            <span class="material-symbols-outlined">audiotrack</span>
+            <span class="text-[10px] uppercase tracking-wider font-medium">Audio</span>
+        </button>
+        <button class="sidebar-icon flex flex-col items-center gap-1 w-full py-3 text-[#849494] hover:text-[#95f9ff] hover:bg-[#191c21] transition-all border-l-2 border-transparent" data-sidebar="scenes">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="text-[10px] uppercase tracking-wider font-medium">Scenes</span>
+        </button>
+    </aside>
+
+    <!-- Left Panel (Library Content) -->
+    <section class="w-[280px] bg-surface-container-low border-r border-outline-variant/10 flex flex-col">
+        <div class="p-4 flex justify-between items-center border-b border-outline-variant/10">
+            <h2 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Library</h2>
+            <button id="btn-add-source" class="text-primary hover:text-primary-container transition-colors"><span class="material-symbols-outlined text-sm">add_circle</span></button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-4" id="source-list">
+            <!-- Sources injected by js -->
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-4 hidden" id="effects-list">
+            <!-- Effects injected by js -->
+        </div>
+    </section>
+
+    <!-- Center Viewport (Preview & Transcript) -->
+    <section class="flex-1 flex flex-col bg-surface overflow-hidden">
+        <div class="flex-1 relative bg-surface-container-lowest flex items-center justify-center p-8" id="preview-container">
+            <div class="placeholder-preview flex flex-col items-center">
+                <span class="material-symbols-outlined text-4xl text-outline-variant mb-2">play_circle</span>
+                <span class="placeholder-preview-label text-on-surface-variant text-sm mb-4">No Preview Available</span>
+                <button id="btn-render-preview" class="px-4 py-2 bg-primary/10 text-primary border border-primary/30 rounded font-medium hover:bg-primary/20 transition-all">Render Preview</button>
+            </div>
+            <!-- Video injected here -->
+        </div>
+
+        <!-- Transcript Editor -->
+        <div class="h-64 bg-surface-container-low border-t border-outline-variant/10 flex flex-col">
+            <div class="px-6 py-3 flex items-center gap-4 border-b border-outline-variant/10 bg-surface-container-high/30 flex-shrink-0">
+                <h3 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Transcript Editor</h3>
+                <div class="h-4 w-px bg-outline-variant/30"></div>
+                <div class="flex gap-4 items-center">
+                    <button class="transcript-tool-btn text-[11px] text-on-surface-variant font-medium flex items-center gap-1 active" data-tool="edit"><span class="material-symbols-outlined text-sm">edit</span> Edit</button>
+                    <button class="transcript-tool-btn text-[11px] text-on-surface-variant font-medium flex items-center gap-1" data-tool="ai-clean"><span class="material-symbols-outlined text-sm">magic_button</span> AI Clean</button>
+                    <button class="transcript-tool-btn text-[11px] text-on-surface-variant font-medium flex items-center gap-1" data-tool="find"><span class="material-symbols-outlined text-sm">search</span> Find & Replace</button>
+                    <span class="mx-2 text-outline-variant">|</span>
+                    <button id="btn-clear-cuts" class="px-2 py-1 text-[11px] border border-outline-variant rounded text-on-surface-variant hover:bg-surface-container">Clear Cuts</button>
+                    <button id="btn-apply-cuts" class="px-3 py-1 text-[11px] bg-primary-container text-on-primary rounded font-bold hover:opacity-90">Apply Cuts</button>
+                </div>
+            </div>
+            <div class="flex-1 p-6 overflow-y-auto leading-relaxed text-on-surface-variant font-body tracking-tight" id="transcript-content">
+                <div class="empty-state text-sm text-center mt-10">Select a clip or run transcription to edit text.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Right Panel (Controls/Export) -->
+    <section class="w-[300px] bg-surface-container-low border-l border-outline-variant/10 flex flex-col">
+        <div class="grid grid-cols-4 border-b border-outline-variant/10 flex-shrink-0">
+            <button class="tab-btn py-4 flex items-center justify-center text-[#849494] hover:text-[#e2e2ea] border-b-2 border-transparent transition-all" data-tab="audio"><span class="material-symbols-outlined text-xl">audiotrack</span></button>
+            <button class="tab-btn py-4 flex items-center justify-center text-[#849494] hover:text-[#e2e2ea] border-b-2 border-transparent transition-all" data-tab="overlays"><span class="material-symbols-outlined text-xl">layers</span></button>
+            <button class="tab-btn py-4 flex items-center justify-center text-[#849494] hover:text-[#e2e2ea] border-b-2 border-transparent transition-all" data-tab="scenes"><span class="material-symbols-outlined text-xl">dashboard</span></button>
+            <button class="tab-btn active py-4 flex items-center justify-center text-[#849494] hover:text-[#e2e2ea] border-b-2 border-transparent transition-all" data-tab="export"><span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">ios_share</span></button>
+        </div>
+        <div class="flex-1 overflow-y-auto relative">
+            <div class="tab-content w-full h-full p-5" id="tab-audio"></div>
+            <div class="tab-content w-full h-full p-5" id="tab-overlays"></div>
+            <div class="tab-content w-full h-full p-5" id="tab-scenes"></div>
+            <div class="tab-content active w-full h-full p-5" id="tab-export">
+                <!-- Export controls injected here -->
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- Timeline Footer -->
+<footer class="fixed bottom-0 left-20 right-0 h-48 bg-surface-container-lowest border-t border-outline-variant/15 z-30 flex flex-col">
+    <!-- Timeline Header/Tools -->
+    <div class="h-10 px-4 flex justify-between items-center border-b border-outline-variant/10 bg-surface/50 backdrop-blur-md">
+        <div class="flex items-center gap-4">
+            <div class="flex gap-1" id="timeline-tools">
+                <button class="timeline-tool p-1 text-on-surface-variant hover:text-primary transition-colors active" title="Selection"><span class="material-symbols-outlined text-lg">arrow_selector_tool</span></button>
+                <button class="timeline-tool p-1 text-on-surface-variant hover:text-primary transition-colors" title="Razor"><span class="material-symbols-outlined text-lg">content_cut</span></button>
+                <button class="timeline-tool p-1 text-on-surface-variant hover:text-primary transition-colors" title="Magnet"><span class="material-symbols-outlined text-lg">auto_fix_normal</span></button>
+            </div>
+            <div class="h-4 w-px bg-outline-variant/30"></div>
+            <span class="mono text-primary text-sm font-bold tracking-widest drop-shadow-[0_0_8px_rgba(149,249,255,0.4)]">TIMELINE</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="text-xs font-bold text-on-surface-variant">ZOOM</span>
+            <input type="range" id="timeline-zoom" min="0.75" max="1.6" step="0.05" value="1" class="w-32 h-1 bg-surface-container-highest rounded-full appearance-none outline-none overflow-hidden cursor-pointer" style="accent-color: var(--color-primary);">
+        </div>
+    </div>
+    <!-- Timeline Tracks -->
+    <div class="flex-1 overflow-x-auto overflow-y-visible px-4 pt-20 pb-4 relative">
+        <div class="absolute top-0 bottom-0 left-12 w-[2px] bg-primary z-10 shadow-[0_0_15px_rgba(37,226,235,0.8)] pointer-events-none">
+            <div class="absolute -top-1 -left-2 w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-t-[12px] border-t-primary"></div>
+        </div>
+        <div class="space-y-2 min-w-[1500px]" id="clip-list">
+            <!-- Video Track Clips injected here -->
+        </div>
+    </div>
+</footer>
+
+<!-- Global Progress Bar at bottom of screen -->
+<div class="fixed bottom-0 left-0 right-0 h-1 bg-surface-container-high z-50 flex" id="global-progress" style="display:none;">
+    <div id="progress-fill" class="h-full bg-primary-container transition-all" style="width: 0%;"></div>
+    <div class="absolute bottom-2 left-2 px-2 py-1 bg-black/80 text-white text-xs rounded" id="progress-label">Rendering...</div>
+    <div class="absolute bottom-2 right-2 px-2 py-1 bg-black/80 text-white text-xs rounded" id="progress-eta">ETA: --:--</div>
+</div>
+
+<!-- Trim Modal -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm" id="trim-modal-root" style="display:none;">
+    <div class="bg-surface-container rounded-xl w-full max-w-2xl border border-outline-variant/30 flex flex-col overflow-hidden shadow-2xl relative">
+        <div class="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center bg-surface-container-low">
+            <h3 class="text-on-surface font-bold text-lg" id="trim-modal-title">Trim Clip</h3>
+            <button id="trim-modal-close" class="text-on-surface-variant hover:text-white transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="p-6 text-on-surface" id="trim-modal-body">
+            <!-- Modal Body Injected -->
+        </div>
+    </div>
+</div>
+
+<script type="module" src="/js/api.js"></script>
+<script type="module" src="/js/app.js"></script>
+
+<script>
+// Right Tab visuals (handled fully by app.js classList.add('active'), but we need tailwind styles connected to "active")
+const style = document.createElement('style');
+style.textContent = `
+    .sidebar-icon.active { color: #95f9ff; background-color: rgba(22,81,84,0.3); border-left-color: #25e2eb; box-shadow: 0 0 15px rgba(37,226,235,0.1); }
+    .tab-btn.active { color: #25e2eb; border-bottom-color: #25e2eb; background-color: rgba(37,226,235,0.05); }
+    .top-nav-link.active { color: #95f9ff; border-bottom-color: #25e2eb; }
+    .transcript-tool-btn.active { color: #95f9ff; background-color: rgba(37,226,235,0.1); border-color: rgba(37,226,235,0.3); }
+    .timeline-tool.active { color: #95f9ff; }
+`;
+document.head.appendChild(style);
+
+// Simple tab tool visual toggles for transcript/timeline
+document.querySelectorAll('.transcript-tool-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.transcript-tool-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    });
+});
+document.querySelectorAll('.timeline-tool').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.timeline-tool').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    });
+});
+</script>
 </body>
 </html>

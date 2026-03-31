@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 
 from graphcut.filtergraph import FilterGraph
 from graphcut.models import AudioMix
@@ -62,15 +63,19 @@ class AudioMixer:
                 # Threshold for sidechaincompress is typically quite low (e.g. 0.01-0.08)
                 # Map ducking_strength (0.0=min, 1.0=max) to ratio (1 to 20)
                 duck_ratio = 1.0 + (19.0 * self.config.ducking_strength)
+                threshold = max(0.0005, min(1.0, math.pow(10.0, self.config.silence_threshold_db / 20.0)))
                 
                 logger.debug(
-                    "Applying ducking to music: ratio=%.1f based on strength=%.2f",
-                    duck_ratio, self.config.ducking_strength
+                    "Applying ducking to music: ratio=%.1f threshold=%.4f based on strength=%.2f silence_db=%.1f",
+                    duck_ratio,
+                    threshold,
+                    self.config.ducking_strength,
+                    self.config.silence_threshold_db,
                 )
                 lbl = fg.sidechaincompress(
                     main_label=lbl,
                     sidechain_label=processed_narration,
-                    threshold=0.08,  # kick in when narration is present
+                    threshold=threshold,
                     ratio=duck_ratio,
                     attack=200.0,
                     release=1000.0,

@@ -41,39 +41,69 @@ export class ExportPanel {
         if (!this.app.state.presets) return;
 
         let html = `
-            <div class="form-group mb-lg" style="margin-bottom:20px">
-                <label>Export Quality (CRF/Bitrate target)</label>
-                <select id="export-quality" class="form-control">
-                    <option value="draft">Draft (Ultrafast, Low Q)</option>
-                    <option value="preview">Preview (Fast, Med Q)</option>
-                    <option value="final" selected>Final (Slow, High Q)</option>
-                </select>
-            </div>
-            <div class="export-grid" id="export-grid-box">
+            <div class="h-full flex flex-col relative">
+                <h2 class="text-sm font-bold text-on-surface mb-4 relative z-10 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary-container text-lg" style="font-variation-settings: 'FILL' 1;">ios_share</span>
+                    Platform Presets
+                </h2>
+                <div class="space-y-3 relative z-10 overflow-y-auto flex-1 pr-2">
         `;
 
         this.app.state.presets.forEach(p => {
+            let iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-on-surface-variant group-hover:text-primary transition-colors" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>`;
+            if (p.name.toLowerCase().includes('youtube')) {
+                iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444" stroke="none"><rect x="2" y="5" width="20" height="14" rx="2"/><polygon points="10 9 15 12 10 15 10 9" fill="#fff"/></svg>`;
+            } else if (p.name.toLowerCase().includes('shorts')) {
+                iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="#25e2eb" stroke="none"><rect x="6" y="2" width="12" height="20" rx="2"/></svg>`;
+            } else if (p.name.toLowerCase().includes('square')) {
+                iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(37, 226, 235, 0.3)" stroke="#25e2eb" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="1"/></svg>`;
+            }
+
             html += `
-                <div style="margin-bottom: 10px;">
-                    <button class="btn btn-export" style="width:100%" data-preset="${p.name}">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        <strong>${p.name}</strong>
-                        <div class="export-meta">${p.width}x${p.height} (${p.aspect_ratio})</div>
-                    </button>
+                <div class="group btn-export flex items-center justify-between p-3 rounded-lg border border-outline-variant/30 bg-surface-container-high hover:bg-surface-bright hover:border-primary/50 cursor-pointer transition-all" data-preset="${p.name}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center">
+                            ${iconSvg}
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-on-surface group-hover:text-primary transition-colors">${p.name}</p>
+                            <p class="text-[10px] text-on-surface-variant">${p.width}x${p.height} (${p.aspect_ratio})</p>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-outline-variant group-hover:text-primary group-hover:translate-x-1 transition-all text-sm">arrow_forward_ios</span>
                 </div>
             `;
         });
 
-        html += `</div>
-            <button class="btn btn-primary" style="margin-top:20px;width:100%" id="btn-export-all">Export All Presets</button>
-            <details style="margin-top: 16px;" id="render-debug">
-                <summary style="cursor: pointer; user-select: none;">Render Debug</summary>
-                <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center;">
-                    <button class="btn btn-sm btn-outline" id="btn-debug-refresh">Refresh</button>
-                    <span style="color: var(--text-muted); font-size: 0.8rem;">Shows last render error details (FFmpeg cmd/stderr when available)</span>
+        html += `
                 </div>
-                <pre id="render-debug-pre" style="margin-top: 10px; white-space: pre-wrap; word-break: break-word; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; max-height: 240px; overflow: auto;">No render failures yet.</pre>
-            </details>
+                <div class="mt-4 pt-4 border-t border-outline-variant/10 relative z-10 flex-shrink-0">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Export Quality (CRF)</label>
+                            <select id="export-quality" class="w-full bg-surface-container-high border border-outline-variant/30 text-on-surface text-xs rounded p-2 outline-none focus:border-primary">
+                                <option value="draft">Draft (Ultrafast, Low Q)</option>
+                                <option value="preview">Preview (Fast, Med Q)</option>
+                                <option value="final" selected>Final (Slow, High Q)</option>
+                            </select>
+                        </div>
+                        <button id="btn-export-all" class="w-full py-3 bg-primary-container text-on-primary font-extrabold rounded-lg shadow-[0_0_15px_rgba(37,226,235,0.2)] hover:shadow-[0_0_20px_rgba(37,226,235,0.4)] hover:bg-[#95f9ff] transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                            Export All Formats <span class="material-symbols-outlined text-sm font-bold">rocket_launch</span>
+                        </button>
+                    </div>
+
+                    <details class="mt-6 text-xs text-on-surface-variant" id="render-debug">
+                        <summary class="cursor-pointer font-bold uppercase tracking-wider flex items-center gap-1 hover:text-primary"><span class="material-symbols-outlined text-[14px]">code</span> Render Debug</summary>
+                        <div class="mt-2 bg-surface-container-low border border-outline-variant/20 rounded p-2">
+                            <div class="flex justify-between items-center mb-2">
+                                <span>Recent FFmpeg Logs</span>
+                                <button id="btn-debug-refresh" class="text-primary hover:underline">Refresh</button>
+                            </div>
+                            <pre id="render-debug-pre" class="h-32 overflow-auto font-mono text-[10px] bg-black/60 p-2 rounded break-all">No render failures yet.</pre>
+                        </div>
+                    </details>
+                </div>
+            </div>
         `;
 
         this.container.innerHTML = html;

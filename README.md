@@ -1,11 +1,11 @@
 <div align="center">
   <br/>
-  <img src="assets/graphcut-hero-banner.png" alt="GraphCut — Local-first AI video editor. Turn raw footage into platform-ready content." width="860" />
+  <img src="assets/graphcut-hero-banner.png" alt="GraphCut — Agent-first video engine. Raw footage in, platform-ready content out." width="860" />
   <br/><br/>
 
   # GraphCut 🎬✂️
 
-  **The local-first video editor that turns raw footage into platform-ready content — and packages it for posting.**
+  **Agent-first video engine. Raw footage in, platform-ready content out.**
 
   <p>
     <a href="https://github.com/colleybrb/graphcut/stargazers"><img src="https://img.shields.io/github/stars/colleybrb/graphcut?style=flat-square&color=25e2eb&labelColor=0b1018" alt="Stars" /></a>
@@ -16,47 +16,46 @@
   </p>
 
   <p>
-    <code>pip install -e ".[all]"</code> · <a href="#-quick-start">Quick Start</a> · <a href="#-creator-agent-pipeline">Agent Pipeline</a> · <a href="#-interactive-web-gui">Web Editor</a> · <a href="#-built-for-ai-agents">AI Agent API</a>
+    <code>pip install -e ".[all]"</code> · <a href="#-quick-start">Quick Start</a> · <a href="#-the-graphcut-thesis">Thesis</a> · <a href="#-pick-the-right-tool">Landscape</a> · <a href="#-creator-agent-pipeline">Agent Pipeline</a> · <a href="#-the-web-gui">Web GUI</a>
   </p>
 </div>
 
 ---
 
-> **One command. Multiple platforms. Zero cloud dependency.**
+> **The CLI is the product. The GUI is a peek behind the curtain.**
 >
-> GraphCut takes your raw clips, auto-transcribes speech, trims dead air, burns in captions, and exports platform-ready videos for YouTube, TikTok, Shorts, Reels, and podcast clips — all from a single CLI invocation or a local web editor. New: **`generate`** and **`queue`** close the loop from script → AI video generation → local fetch, with a provider-agnostic contract you can exercise today via the built-in mock provider.
+> GraphCut is an agent-first video composition engine built for one workflow: an AI agent (or a human at a terminal) turns raw clips into transcribed, captioned, multi-platform exports — with zero GUI interaction. Every action is a deterministic CLI command with JSON output. The web editor exists so you can see what the agent built, not to replace it.
 
 <br/>
 
-## ⚡ What Makes GraphCut Different
+## 🧠 The GraphCut Thesis
+
+Most video tools assume a human is driving. GraphCut assumes **a program** is driving.
 
 <table>
 <tr>
 <td width="50%">
 
-### 🔒 100% Local & Private
-All processing runs on your machine. AI transcription uses local Whisper models. No media ever touches a cloud server. No API keys. No subscriptions.
+### CLI-First, Not GUI-First
+Every feature ships as a CLI command before it becomes a button. `--json` on everything. Project state is a manifest file, not hidden UI state. An agent can operate GraphCut without ever opening a browser.
 
-### 🎯 Outcome-First Design
-Instead of building timelines manually, tell GraphCut *what you want* — it figures out the cuts, transitions, and exports. `viralize` turns one long video into platform-ready clips with titles, hashtags, and hooks in a single invocation.
+### Outcome-First, Not Timeline-First
+Instead of "add clip to track 2 at timecode 01:30," GraphCut thinks in outcomes: `make`, `repurpose`, `viralize`. One command replaces a 30-minute Premiere session. You describe *what you want*, not *how to build it*.
 
-### 🤖 Agent-Ready Architecture
-Every action maps to a deterministic CLI command with JSON output. AI agents can ingest footage, generate project manifests, and render outputs without touching a GUI.
+### FFmpeg as the Renderer, Not a Wrapper
+Rendering uses raw FFmpeg filtergraphs via subprocess — no Python frame loops, no MoviePy `TextClip` bottlenecks. Hardware acceleration auto-detects NVENC, VideoToolbox, or QSV. Stream-copy when transcoding isn't needed.
 
 </td>
 <td width="50%">
 
-### 🚀 FFmpeg Under the Hood
-Rendering uses raw FFmpeg filtergraphs via subprocess — no slow Python frame loops. Hardware acceleration auto-detects NVENC, VideoToolbox, or QSV.
+### Local-First, Composable Later
+All processing runs on your machine. Whisper transcription, scene detection, audio normalization — zero cloud calls by default. But the architecture is designed to compose with external systems (OTIO, Temporal, ComfyUI) when you outgrow the built-in layer.
 
-### 📱 Native Platform Presets
-Export presets are shaped for each platform's actual requirements: aspect ratio, duration limits, codec profiles. Not generic "16:9 or 9:16" toggles.
+### Provider-Agnostic Generation
+`storyboard` → `generate` → `queue fetch`: a full pipeline from script to AI-generated video. The contract is provider-agnostic — swap the mock provider for Runway, Pika, or Sora without changing the CLI shape. Real adapters plug in behind the same `submit → wait → fetch` lifecycle.
 
-### 🧠 AI-Powered Editing
-Local `faster-whisper` transcription with word-level timestamps. Edit your video by editing text — delete words from the transcript and the video cuts itself.
-
-### 🎬 Script → Generated Video
-`storyboard` → `generate` → `queue fetch`: a full pipeline from plain-text script to AI-generated video assets. Provider-agnostic contract with a built-in mock so agents can exercise the complete flow today.
+### Platform-Aware, Not Platform-Generic
+Export presets encode each platform's actual requirements: TikTok's 9:16 aspect + 60s max, YouTube Shorts' codec profile, Instagram Reels' bitrate ceiling. Not "pick an aspect ratio" toggles.
 
 </td>
 </tr>
@@ -64,10 +63,41 @@ Local `faster-whisper` transcription with word-level timestamps. Edit your video
 
 <br/>
 
+## 🗺️ Pick the Right Tool
+
+GraphCut occupies a specific point in the video tooling landscape. Here's an honest guide to when it's the right pick — and when it isn't.
+
+<div align="center">
+  <img src="assets/graphcut-positioning.png" alt="Competitive positioning chart — GraphCut vs Remotion, MLT, GStreamer, ComfyUI, and auto-editor" width="780" />
+  <br/>
+  <em>Where GraphCut sits in the automated video infrastructure landscape</em>
+  <br/><br/>
+</div>
+
+| Use GraphCut when... | Compose GraphCut with... | Use something else when... |
+|----------------------|--------------------------|----------------------------|
+| You need an AI agent to go from raw footage → posted content without a GUI | **[OTIO](https://opentimeline.io/)** for timeline interchange with Premiere, Resolve, Unreal | You need **real-time streaming** or live switching → **[GStreamer](https://gstreamer.freedesktop.org/)** |
+| You want `--json` on every operation for high-scale programmatic post-production pipelines | **[Temporal](https://temporal.io/)** or **[LangGraph](https://langchain-ai.github.io/langgraph/)** for durable multi-step agent orchestration | You need **multitrack NLE semantics** (tracks, layers, effects chains) → **[MLT](https://www.mltframework.org/)** |
+| You want local-first processing with opt-in cloud generation | **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** for generative model pipelines feeding into GraphCut renders | You need **video as React code** with parametrized templates → **[Remotion](https://remotion.dev/)** |
+| You're building a "creator content factory" that runs overnight | **[auto-editor](https://auto-editor.com/)** as a specialized silence-removal component | You need a **mature generative graph ecosystem** out of the box → **ComfyUI** |
+
+<details>
+<summary><b>The longer version: what GraphCut is structurally weaker at today</b></summary>
+
+- **Native interop** — No OTIO/AAF/XML import yet. Timelines live in GraphCut's own manifest format. If you need to round-trip with Premiere or Resolve, you'll want OTIO on top.
+- **Real multitrack NLE semantics** — GraphCut has a single-track clip sequence with transitions. It's not tracks, layers, and effect chains. MLT or Remotion are better if that's your core need.
+- **Real-time / streaming** — GraphCut is batch-oriented. No live preview, no webcam switching, no low-latency output. GStreamer owns that space.
+- **Generative graph ecosystem** — The generation queue is provider-agnostic but currently has only a mock adapter. ComfyUI has a mature ecosystem of model nodes. GraphCut's value is downstream: compositing *after* generation.
+- **Durable orchestration** — The internal queue works for single-machine, single-session flows. For multi-hour jobs with retries, human approvals, and external API calls, wire GraphCut into Temporal or LangGraph.
+
+</details>
+
+<br/>
+
 ## 🚀 Quick Start
 
 ```bash
-# Install (FFmpeg is bundled — no system install needed)
+# Install
 git clone https://github.com/colleybrb/graphcut.git && cd graphcut
 pip install -e ".[all]"
 
@@ -77,10 +107,10 @@ graphcut make input.mp4 --platform tiktok --captions social
 # Repurpose a podcast into 8 short clips with silence trimmed
 graphcut repurpose podcast.mp4 --platform shorts --clips 8 --remove-silence
 
-# NEW: Repurpose + auto-generate publish metadata in one shot
+# Full pipeline: repurpose + generate publish metadata in one shot
 graphcut viralize podcast.mp4 --recipe podcast --clips 8 --render
 
-# Or open the visual editor for manual control
+# Or open the web GUI to see what the CLI built
 graphcut new-project my-video
 graphcut add-source my-video footage.mp4 background_audio.mp3
 graphcut serve my-video    # → opens http://localhost:8420
@@ -90,54 +120,9 @@ graphcut serve my-video    # → opens http://localhost:8420
 
 <br/>
 
-## 📸 Interactive Web GUI
-
-GraphCut includes a full-featured local web editor for when you need hands-on control.
-
-<table>
-<tr>
-<td width="30%"><b>📚 Media Library</b></td>
-<td>Import clips and audio. Thumbnail previews, duration metadata, one-click timeline insertion.</td>
-</tr>
-<tr>
-<td><b>✏️ Transcript Editor</b></td>
-<td>AI-generate word-level transcripts, then <i>delete words to cut video</i>. Shift-click to range select, Backspace to mark cuts.</td>
-</tr>
-<tr>
-<td><b>🎛️ Audio Mixer</b></td>
-<td>Source gain, music gain, LUFS normalization with broadcast-standard targeting. Narration/music role assignment.</td>
-</tr>
-<tr>
-<td><b>🎬 Timeline</b></td>
-<td>Visual clip sequencing with drag-to-reorder, trim controls, split, duplicate, and transition effects (Cut/Fade/Crossfade).</td>
-</tr>
-<tr>
-<td><b>📤 Multi-Export</b></td>
-<td>One-click export to YouTube (16:9), Shorts (9:16), and Square (1:1). Draft/Preview/Final quality tiers. Batch export all presets simultaneously.</td>
-</tr>
-<tr>
-<td><b>🎭 Scene Snapshots</b></td>
-<td>Save and restore complete editing states (webcam overlay, audio mix, caption style, roles) as named scenes — OBS-style.</td>
-</tr>
-</table>
-
-<div align="center">
-  <br/>
-  <img src="assets/graphcut-editor-mockup.png" alt="GraphCut web editor with media library, video preview, transcript editor, export presets, and timeline" width="780" />
-  <br/>
-  <em>The GraphCut web editor — media library, transcript-based editing, and one-click multi-platform export</em>
-  <br/><br/>
-</div>
-
-```bash
-graphcut serve my-video --port 8420
-```
-
-<br/>
-
 ## 🧬 Creator Agent Pipeline
 
-From script to storyboard to generated video to publish-ready metadata — the full creator workflow is scriptable.
+The full creator workflow — from script to storyboard to generated video to publish-ready metadata — is scriptable end to end.
 
 <div align="center">
   <img src="assets/graphcut-cli-showcase.png" alt="GraphCut CLI agent workflow — storyboard, generate, and viralize commands with syntax-highlighted JSON output" width="780" />
@@ -148,16 +133,12 @@ From script to storyboard to generated video to publish-ready metadata — the f
 
 | Command | What It Does |
 |---------|-------------|
-| **`storyboard`** | Turns a script into provider-agnostic shot prompts (visual prompt, camera move, on-screen text, aspect ratio) |
-| **`generate`** | Submits a storyboard or script to an AI video provider — optionally waits and fetches results in one shot |
-| **`queue submit`** | Submit a storyboard JSON to the generation queue |
-| **`queue list`** | List all generation jobs |
-| **`queue status`** | Check a job's current state (with optional `--refresh`) |
-| **`queue wait`** | Block until a job succeeds or fails |
-| **`queue fetch`** | Download generated assets to local disk |
-| **`providers list`** | Show available generation providers |
-| **`package`** | Creates a publish-ready metadata bundle: title options, description, hashtags, and hook text |
-| **`viralize`** | Combines `repurpose` + `package` — plans or renders short-form clips AND generates the publishing bundle |
+| **`storyboard`** | Script → provider-agnostic shot prompts (visual prompt, camera move, on-screen text, aspect ratio) |
+| **`generate`** | Submits a storyboard or raw script to an AI video provider — optionally waits and fetches results in one shot |
+| **`queue submit/list/status/wait/fetch`** | Full job lifecycle control for generation tasks |
+| **`providers list`** | Show available generation providers (mock built-in, real adapters plug in) |
+| **`package`** | Source file → publish-ready metadata bundle: title options, description, hashtags, hook text |
+| **`viralize`** | `repurpose` + `package` in one command — plans or renders short-form clips AND generates the publishing bundle |
 
 ### End-to-End: Script → AI Video → Local Assets
 
@@ -191,7 +172,7 @@ The generation queue uses a provider-agnostic contract — the built-in `mock` p
 
 ## 🤖 Built for AI Agents
 
-GraphCut is designed to be driven programmatically. Every GUI action has a corresponding CLI command with `--json` output.
+Every action is a deterministic CLI command. Every command supports `--json`. An agent can drive a complete video production workflow without ever rendering a pixel in a browser.
 
 ```bash
 # Agent workflow: ingest → build timeline → export
@@ -230,6 +211,51 @@ graphcut generate --text "..." --json     # Submit + return job as JSON
 graphcut queue list --json                # All generation jobs as JSON
 graphcut queue status <id> --json         # Single job state as JSON
 graphcut queue fetch <id> --json          # Fetched assets as JSON
+```
+
+<br/>
+
+## 👁️ The Web GUI
+
+The GUI is not the product — it's a window into what the CLI built. Open it when you want to manually inspect, tweak, or preview before the agent renders.
+
+<table>
+<tr>
+<td width="30%"><b>📚 Media Library</b></td>
+<td>Import clips and audio. Thumbnail previews, duration metadata, one-click timeline insertion.</td>
+</tr>
+<tr>
+<td><b>✏️ Transcript Editor</b></td>
+<td>AI-generate word-level transcripts, then <i>delete words to cut video</i>. Shift-click to range select, Backspace to mark cuts.</td>
+</tr>
+<tr>
+<td><b>🎛️ Audio Mixer</b></td>
+<td>Source gain, music gain, LUFS normalization with broadcast-standard targeting. Narration/music role assignment.</td>
+</tr>
+<tr>
+<td><b>🎬 Timeline</b></td>
+<td>Visual clip sequencing with drag-to-reorder, trim controls, split, duplicate, and transition effects (Cut/Fade/Crossfade).</td>
+</tr>
+<tr>
+<td><b>📤 Multi-Export</b></td>
+<td>One-click export to YouTube (16:9), Shorts (9:16), and Square (1:1). Draft/Preview/Final quality tiers.</td>
+</tr>
+<tr>
+<td><b>🎭 Scene Snapshots</b></td>
+<td>Save and restore complete editing states (webcam overlay, audio mix, caption style, roles) as named scenes — OBS-style.</td>
+</tr>
+</table>
+
+<div align="center">
+  <br/>
+  <img src="assets/graphcut_ui_stitch.png" alt="GraphCut web editor — media library, transcript-based editing, and multi-platform export" width="780" />
+  <br/>
+  <em>The GraphCut "Obsidian and Gold" web GUI — peek behind the curtain at what the agent built</em>
+  <br/><br/>
+</div>
+
+```bash
+graphcut serve my-video --port 8420
 ```
 
 <br/>
@@ -368,30 +394,35 @@ graphcut export my-video --preset Shorts --quality draft
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────┐
-│             Web GUI (Vanilla JS)                │  ← No framework deps
-├─────────────────────────────────────────────────┤
-│      FastAPI Server + WebSocket Progress        │  ← Real-time UI
-├─────────────────────────────────────────────────┤
-│       Click CLI (Agent-Friendly JSON)           │  ← Every action scriptable
-├──────────┬──────────┬───────────┬───────────────┤
-│  FFmpeg  │ faster-  │ PyScene-  │  Generation   │  ← Local + provider
-│ Filter-  │ whisper  │ Detect    │  Queue        │    agnostic
-│ graph    │          │           │  (mock/real)  │
-└──────────┴──────────┴───────────┴───────────────┘
-```
+<div align="center">
+  <img src="assets/graphcut-architecture.png" alt="GraphCut architecture — Agent Layer → CLI → Ingest/Compose/Deliver pipeline → Composable Ecosystem" width="780" />
+  <br/>
+  <em>Agent-driven architecture with composable integration points</em>
+  <br/><br/>
+</div>
 
-| Layer | Tech |
-|-------|------|
-| **Frontend** | Vanilla JS, CSS Grid, WebSocket — zero npm dependencies |
-| **Backend** | FastAPI, Pydantic v2, uvicorn |
-| **Rendering** | FFmpeg filtergraphs via subprocess — no Python frame loops |
-| **Transcription** | faster-whisper (CUDA, Metal, CPU) with word-level timestamps |
-| **Scene Detection** | PySceneDetect with ContentDetector / AdaptiveDetector |
-| **Audio** | ffmpeg-normalize (two-pass loudnorm, podcast presets) |
-| **Agent Workflows** | Storyboard planner, publish bundler, viralize pipeline |
-| **Generation Queue** | Provider-agnostic submit/wait/fetch lifecycle (mock provider built-in) |
+| Layer | Tech | Why |
+|-------|------|-----|
+| **CLI** | Click, `--json` everywhere | Agents don't click buttons |
+| **Rendering** | FFmpeg filtergraphs via subprocess | No Python frame loops. Hardware accel auto-detected. |
+| **Transcription** | faster-whisper (CUDA, Metal, CPU) | Local-first, word-level timestamps, VAD built in |
+| **Scene Detection** | PySceneDetect | ContentDetector for cuts, AdaptiveDetector for motion |
+| **Audio** | ffmpeg-normalize (two-pass loudnorm) | Broadcast-standard LUFS targeting |
+| **Agent Workflows** | Storyboard → Package → Viralize | Script-to-post in one pipeline |
+| **Generation Queue** | Provider-agnostic submit/wait/fetch | Mock built-in, real adapters plug in |
+| **Web GUI** | Vanilla JS, CSS Grid, WebSocket | Zero npm deps. Window into CLI state, not the product. |
+| **Backend** | FastAPI, Pydantic v2, uvicorn | Thin server layer for GUI communication |
+
+### Composable Ecosystem
+
+GraphCut is designed to be one layer in a larger stack, not the whole stack:
+
+| If you need... | Compose with... |
+|----------------|-----------------|
+| Timeline interchange with Premiere/Resolve | **[OpenTimelineIO](https://opentimeline.io/)** — export/import OTIO manifests |
+| Durable multi-step agent orchestration | **[Temporal](https://temporal.io/)** or **[LangGraph](https://langchain-ai.github.io/langgraph/)** — wrap GraphCut CLI calls in durable workflows |
+| Generative model pipelines | **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** — generate assets, feed into GraphCut for compositing |
+| Specialized silence removal | **[auto-editor](https://auto-editor.com/)** — use as a preprocessing step before GraphCut |
 
 <br/>
 

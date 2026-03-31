@@ -19,11 +19,16 @@ export class PreviewPanel {
         this.playerElements = {};
 
         document.getElementById('btn-render-preview').addEventListener('click', async () => {
-            const btn = document.getElementById('btn-render-preview');
-            const placeholder = this.container.querySelector('.placeholder-preview');
-            if (placeholder) {
-                placeholder.querySelector('span').textContent = 'Rendering...';
+            const hasClips = Array.isArray(this.app.state.clips) && this.app.state.clips.length > 0;
+            if (!hasClips) {
+                alert('Add at least one clip to the timeline before rendering a preview.');
+                this.updatePlaceholderState();
+                return;
             }
+
+            const btn = document.getElementById('btn-render-preview');
+            const label = this.container.querySelector('.placeholder-preview-label');
+            if (label) label.textContent = 'Rendering...';
             btn.textContent = 'Rendering Initial Preview...';
             btn.disabled = true;
             try {
@@ -31,12 +36,11 @@ export class PreviewPanel {
                 this.lastExpectedPreview = res.filename;
                 this.lastPreviewJobId = res.job_id;
                 btn.textContent = 'Check Progress Bar';
+                this.app.setStatus('Draft preview queued', 2500);
             } catch (e) {
                 btn.textContent = 'Render Preview';
                 btn.disabled = false;
-                if (placeholder) {
-                    placeholder.querySelector('span').textContent = 'No Preview Available';
-                }
+                this.updatePlaceholderState();
                 alert(e.message || 'Preview render failed.');
             }
         });
@@ -68,6 +72,23 @@ export class PreviewPanel {
             btn.textContent = 'Render Preview';
             btn.disabled = false;
         }
+    }
+
+    updatePlaceholderState(message = null) {
+        const label = this.container.querySelector('.placeholder-preview-label');
+        const btn = document.getElementById('btn-render-preview');
+        if (!label || !btn) return;
+
+        const hasClips = Array.isArray(this.app.state.clips) && this.app.state.clips.length > 0;
+        label.textContent = message || (
+            hasClips
+                ? 'No Preview Available'
+                : 'Add clips to the timeline to render a preview'
+        );
+        btn.disabled = !hasClips;
+        btn.classList.toggle('opacity-40', !hasClips);
+        btn.classList.toggle('cursor-not-allowed', !hasClips);
+        btn.textContent = 'Render Preview';
     }
 
     bindPlayer() {
@@ -202,6 +223,8 @@ export class PreviewPanel {
         const projectName = this.app.state.project?.name || 'GraphCut';
         if (this.playerElements.project) {
             this.playerElements.project.textContent = projectName;
+            return;
         }
+        this.updatePlaceholderState();
     }
 }

@@ -318,16 +318,34 @@ class Renderer:
             idx = input_indices[manifest.webcam.source_id]
             final_v = compositor.add_webcam_overlay(
                 fg, 
-                base_label=f"[{final_v}]", 
+                base_label=final_v,
                 webcam_input_idx=idx, 
                 config=manifest.webcam,
                 base_width=base_w,
                 base_height=base_h
             )
 
+        if manifest.sticker:
+            if manifest.sticker.mode == "asset" and manifest.sticker.source_id in input_indices:
+                final_v = compositor.add_sticker_overlay(
+                    fg,
+                    base_label=final_v,
+                    sticker_input_idx=input_indices[manifest.sticker.source_id],  # type: ignore[arg-type]
+                    config=manifest.sticker,
+                    base_width=base_w,
+                )
+            elif manifest.sticker.mode == "emoji" and (manifest.sticker.text or "").strip():
+                final_v = compositor.add_emoji_overlay(
+                    fg,
+                    base_label=final_v,
+                    config=manifest.sticker,
+                    base_width=base_w,
+                    base_height=base_h,
+                )
+
         # 5. Handle Preview Quality (Scale)
         if quality == "preview":
-            final_v = fg.scale(f"[{final_v}]" if not final_v.startswith("[") and not manifest.webcam else final_v, width=854, height=480)
+            final_v = fg.scale(final_v, width=854, height=480)
 
         # 6. Add Captions (Burn-in)
         # Assuming we check if there's a cached transcript mapped to the primary source
@@ -352,7 +370,7 @@ class Renderer:
                     fg.nodes.append(
                         __import__("graphcut.filtergraph", fromlist=["FilterNode"]).FilterNode(
                             filter_name=captions_filter_str,
-                            inputs=[f"[{final_v}]" if not final_v.startswith("[") else final_v.strip("[]")],
+                            inputs=[final_v],
                             outputs=[cap_out]
                         )
                     )

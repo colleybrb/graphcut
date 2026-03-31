@@ -89,6 +89,27 @@ class WebcamOverlay(BaseModel):
     corner_radius: int = 0
 
 
+class StickerOverlay(BaseModel):
+    """Timed emoji or asset overlay configuration."""
+
+    mode: Literal["emoji", "asset"] = "emoji"
+    text: str | None = None
+    source_id: str | None = None
+    position: Literal[
+        "bottom-right",
+        "bottom-left",
+        "top-right",
+        "top-left",
+        "center",
+        "top-center",
+        "bottom-center",
+    ] = "top-right"
+    scale: float = 0.18
+    opacity: float = 1.0
+    start_time: float = 0.0
+    end_time: float | None = None
+
+
 class AudioMix(BaseModel):
     """Audio mixing settings."""
 
@@ -130,6 +151,7 @@ class SceneConfig(BaseModel):
     """OBS-like scene snapshot (overlay + audio + captions + roles)."""
 
     webcam: WebcamOverlay | None = None
+    sticker: StickerOverlay | None = None
     audio_mix: AudioMix = Field(default_factory=AudioMix)
     caption_style: CaptionStyle = Field(default_factory=CaptionStyle)
     narration: str | None = None  # source_id
@@ -188,6 +210,7 @@ class ProjectManifest(BaseModel):
     narration: str | None = None  # source_id
     music: str | None = None  # source_id
     webcam: WebcamOverlay | None = None
+    sticker: StickerOverlay | None = None
     audio_mix: AudioMix = Field(default_factory=AudioMix)
     caption_style: CaptionStyle = Field(default_factory=CaptionStyle)
     burn_captions: bool = True

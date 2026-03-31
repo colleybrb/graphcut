@@ -88,37 +88,41 @@ export class TrimModal {
         const initialOut = this.state.trimEnd ?? (duration || null);
 
         this.body.innerHTML = `
-            <div style="display:grid; grid-template-columns: 1.4fr 1fr; gap: 12px;">
-                <div>
-                    <video id="trim-video" src="${mediaUrl}" controls style="width:100%; max-height: 360px; background:#000; border:1px solid var(--border-color); border-radius: var(--radius-sm);"></video>
-                    <div style="display:flex; gap: 8px; margin-top: 10px; align-items:center; flex-wrap:wrap;">
-                        <button class="btn btn-sm btn-outline" id="btn-trim-start">Start (Set In)</button>
-                        <button class="btn btn-sm btn-outline" id="btn-trim-stop">Stop (Set Out)</button>
-                        ${mode === 'split' ? `<button class="btn btn-sm btn-primary" id="btn-split-here">Split Here</button>` : ``}
+            <div class="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-6">
+                <!-- Video Section -->
+                <div class="space-y-4">
+                    <div class="bg-black rounded-lg border border-outline-variant/30 overflow-hidden shadow-inner">
+                        <video id="trim-video" src="${mediaUrl}" controls class="w-full max-h-[360px] object-contain"></video>
                     </div>
-                    <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 6px;">
-                        Play the source, click Start then Stop. You can repeat “Add Segment” multiple times.
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <button class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant/50 rounded text-sm text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1 shadow-sm" id="btn-trim-start"><span class="material-symbols-outlined text-[16px]">arrow_drop_down</span> Set In</button>
+                        <button class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant/50 rounded text-sm text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1 shadow-sm" id="btn-trim-stop"><span class="material-symbols-outlined text-[16px]">arrow_drop_up</span> Set Out</button>
+                        ${mode === 'split' ? `<button class="px-3 py-1.5 bg-primary-container text-on-primary font-bold rounded shadow-sm hover:scale-105 transition-transform" id="btn-split-here">Split Here</button>` : ``}
                     </div>
+                    <p class="text-xs text-on-surface-variant/70">Play the source, click Set In then Set Out. You can repeat “Add Segment” multiple times.</p>
                 </div>
-                <div>
-                    <div class="form-group">
-                        <label>In (seconds)</label>
-                        <input type="number" class="form-control" id="trim-in" min="0" step="0.05" value="${initialIn.toFixed(2)}">
+                
+                <!-- Controls Section -->
+                <div class="flex flex-col gap-4 bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/10">
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">In (seconds)</label>
+                        <input type="number" id="trim-in" class="w-full bg-surface-container-high border border-outline-variant/30 text-on-surface text-sm rounded p-2 outline-none focus:border-primary mono" min="0" step="0.05" value="${initialIn.toFixed(2)}">
                     </div>
-                    <div class="form-group">
-                        <label>Out (seconds)</label>
-                        <input type="number" class="form-control" id="trim-out" min="0" step="0.05" value="${(initialOut ?? 0).toFixed(2)}">
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">Out (seconds)</label>
+                        <input type="number" id="trim-out" class="w-full bg-surface-container-high border border-outline-variant/30 text-on-surface text-sm rounded p-2 outline-none focus:border-primary mono" min="0" step="0.05" value="${(initialOut ?? 0).toFixed(2)}">
                     </div>
-                    <div class="form-group">
-                        <label>Current Time</label>
-                        <div id="trim-cur" style="font-variant-numeric: tabular-nums; padding: 8px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-main);">0.00</div>
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">Current Time</label>
+                        <div id="trim-cur" class="w-full bg-surface-container-high/50 border border-outline-variant/20 text-primary font-bold text-sm rounded p-2 mono tabular-nums text-center">0.00</div>
                     </div>
-                    <div style="display:flex; gap: 8px; margin-top: 10px; flex-wrap:wrap;">
-                        ${mode === 'edit' ? `<button class="btn btn-primary" id="btn-apply-trim">Apply To Clip</button>` : ``}
-                        ${mode === 'add' ? `<button class="btn btn-primary" id="btn-add-segment">Add Segment</button>` : ``}
-                        <button class="btn btn-outline" id="btn-close-trim">Close</button>
+                    
+                    <div class="flex flex-col gap-2 mt-4 pt-4 border-t border-outline-variant/10">
+                        ${mode === 'edit' ? `<button id="btn-apply-trim" class="w-full py-2 bg-primary-container text-on-primary font-bold rounded shadow-[0_0_10px_rgba(37,226,235,0.2)] hover:bg-[#95f9ff] transition-all">Apply To Clip</button>` : ``}
+                        ${mode === 'add' ? `<button id="btn-add-segment" class="w-full py-2 bg-primary-container text-on-primary font-bold rounded shadow-[0_0_10px_rgba(37,226,235,0.2)] hover:bg-[#95f9ff] transition-all">Add Segment</button>` : ``}
+                        <button id="btn-close-trim" class="w-full py-2 bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-on-surface-variant rounded transition-colors">Cancel</button>
                     </div>
-                    <div id="trim-msg" style="margin-top:10px; color: var(--text-muted); font-size:0.85rem;"></div>
+                    <div id="trim-msg" class="text-xs text-primary font-medium text-center h-4"></div>
                 </div>
             </div>
         `;
@@ -208,6 +212,9 @@ export class TrimModal {
                     trim_end: tout,
                     position: this.state.insertPosition
                 });
+                if (this.state.insertPosition !== null) {
+                    this.state.insertPosition += 1;
+                }
                 await this.app.refreshState();
                 msgEl.textContent = `Added segment ${tin.toFixed(2)}s → ${tout.toFixed(2)}s`;
             } catch (e) {
@@ -229,4 +236,3 @@ export class TrimModal {
         });
     }
 }
-

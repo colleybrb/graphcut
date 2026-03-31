@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from graphcut.filtergraph import FilterGraph, FilterNode
-from graphcut.models import WebcamOverlay
+from graphcut.models import StickerOverlay, WebcamOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -62,16 +62,7 @@ class OverlayCompositor:
         # 3. Calculate positioning mapping
         # Let W, H = base width, height via "main_w", "main_h" evaluated inside FFmpeg
         # Let w, h = overlay width, height via "overlay_w", "overlay_h"
-        margin = 20
-        pos_rules = {
-            "bottom-right": (f"main_w-overlay_w-{margin}", f"main_h-overlay_h-{margin}"),
-            "bottom-left": (str(margin), f"main_h-overlay_h-{margin}"),
-            "top-right": (f"main_w-overlay_w-{margin}", str(margin)),
-            "top-left": (str(margin), str(margin)),
-            "side-by-side": ("0", "(main_h-overlay_h)/2"),  # Simplified proxy
-        }
-        
-        x_pos, y_pos = pos_rules.get(config.position, pos_rules["bottom-right"])
+        x_pos, y_pos = self._overlay_position(config.position, margin=20)
         
         # 4. Apply Overlay
         return fg.overlay(
@@ -80,6 +71,87 @@ class OverlayCompositor:
             x=x_pos,
             y=y_pos
         )
+
+    def add_sticker_overlay(
+        self,
+        fg: FilterGraph,
+        base_label: str,
+        sticker_input_idx: int,
+        config: StickerOverlay,
+        base_width: int,
+    ) -> str:
+        """Add a scaled asset overlay such as a GIF, PNG, or viral cutaway."""
+        target_w = max(80, int(base_width * config.scale))
+        scaled_label = fg.scale(f"{sticker_input_idx}:v", width=target_w, height=-1)
+        active_label = scaled_label
+
+        if config.opacity < 0.99:
+            rgba_label = fg._next_v_label()
+            fg.nodes.append(
+                FilterNode(
+                    filter_name="format",
+                    inputs=[active_label],
+                    outputs=[rgba_label],
+                    params={"pix_fmts": "rgba"},
+                )
+            )
+            alpha_label = fg._next_v_label()
+            fg.nodes.append(
+                FilterNode(
+                    filter_name="colorchannelmixer",
+                    inputs=[rgba_label],
+                    outputs=[alpha_label],
+                    params={"aa": f"{max(0.05, min(1.0, config.opacity)):.2f}"},
+                )
+            )
+            active_label = alpha_label
+
+        x_pos, y_pos = self._overlay_position(config.position, margin=24)
+        enable = self._time_enable(config.start_time, config.end_time)
+        return fg.overlay(
+            base_label=base_label,
+            overlay_label=active_label,
+            x=x_pos,
+            y=y_pos,
+            enable=enable,
+        )
+
+    def add_emoji_overlay(
+        self,
+        fg: FilterGraph,
+        base_label: str,
+        config: StickerOverlay,
+        base_width: int,
+        base_height: int,
+    ) -> str:
+        """Add a timed drawtext overlay for emoji or short text reactions."""
+        out_lbl = fg._next_v_label()
+        fontsize = max(54, int(min(base_width, base_height) * max(0.08, config.scale)))
+        x_pos, y_pos = self._text_position(config.position, margin=48)
+        enable = self._time_enable(config.start_time, config.end_time)
+        text = self._escape_drawtext_text(config.text or "")
+
+        fg.nodes.append(
+            FilterNode(
+                filter_name="drawtext",
+                inputs=[base_label],
+                outputs=[out_lbl],
+                params={
+                    "text": f"'{text}'",
+                    "fontsize": str(fontsize),
+                    "fontcolor": f"white@{max(0.1, min(1.0, config.opacity)):.2f}",
+                    "x": x_pos,
+                    "y": y_pos,
+                    "borderw": "6",
+                    "bordercolor": "black@0.35",
+                    "shadowcolor": "black@0.25",
+                    "shadowx": "3",
+                    "shadowy": "3",
+                    "enable": enable,
+                },
+            )
+        )
+        return out_lbl
 
     def add_watermark(
         self,
@@ -166,3 +238,46 @@ class OverlayCompositor:
             }
         ))
         return out_lbl
+
+    def _overlay_position(self, position: str, margin: int = 20) -> tuple[str, str]:
+        pos_rules = {
+            "bottom-right": (f"main_w-overlay_w-{margin}", f"main_h-overlay_h-{margin}"),
+            "bottom-left": (str(margin), f"main_h-overlay_h-{margin}"),
+            "top-right": (f"main_w-overlay_w-{margin}", str(margin)),
+            "top-left": (str(margin), str(margin)),
+            "center": ("(main_w-overlay_w)/2", "(main_h-overlay_h)/2"),
+            "top-center": ("(main_w-overlay_w)/2", str(margin)),
+            "bottom-center": ("(main_w-overlay_w)/2", f"main_h-overlay_h-{margin}"),
+            "side-by-side": ("0", "(main_h-overlay_h)/2"),
+        }
+        return pos_rules.get(position, pos_rules["bottom-right"])
+
+    def _text_position(self, position: str, margin: int = 40) -> tuple[str, str]:
+        pos_rules = {
+            "bottom-right": (f"w-text_w-{margin}", f"h-text_h-{margin}"),
+            "bottom-left": (str(margin), f"h-text_h-{margin}"),
+            "top-right": (f"w-text_w-{margin}", str(margin)),
+            "top-left": (str(margin), str(margin)),
+            "center": ("(w-text_w)/2", "(h-text_h)/2"),
+            "top-center": ("(w-text_w)/2", str(margin)),
+            "bottom-center": ("(w-text_w)/2", f"h-text_h-{margin}"),
+        }
+        return pos_rules.get(position, pos_rules["top-right"])
+
+    def _time_enable(self, start_time: float, end_time: float | None) -> str:
+        start = max(0.0, float(start_time or 0.0))
+        if end_time is None:
+            return f"gte(t,{start:.3f})"
+        end = max(start, float(end_time))
+        return f"between(t,{start:.3f},{end:.3f})"
+
+    def _escape_drawtext_text(self, value: str) -> str:
+        return (
+            str(value)
+            .replace("\\", r"\\")
+            .replace(":", r"\:")
+            .replace("'", r"\'")
+            .replace("%", r"\%")
+            .replace("[", r"\[")
+            .replace("]", r"\]")
+        )

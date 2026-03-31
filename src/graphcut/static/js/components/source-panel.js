@@ -45,22 +45,43 @@ export class SourcePanel {
         Object.entries(this.app.state.sources).forEach(([id, info]) => {
             if (info.media_type !== 'video' && info.media_type !== 'audio') return;
             const el = document.createElement('div');
-            el.className = 'media-item source-card';
+            el.className = 'group relative bg-surface-container rounded-lg overflow-hidden border border-transparent hover:border-primary/30 transition-all cursor-grab active:cursor-grabbing';
+            el.draggable = true;
+            el.title = 'Drag this source into the timeline to insert a clip';
+
             const meta = info.media_type === 'audio'
-                ? `${(info.duration_seconds || 0).toFixed(1)}s • audio`
-                : `${(info.duration_seconds || 0).toFixed(1)}s • ${info.width || '--'}x${info.height || '--'}`;
+                ? `${(info.duration_seconds || 0).toFixed(1)}s`
+                : `${(info.duration_seconds || 0).toFixed(1)}s`;
+
+            const thumbHtml = info.thumbnail 
+                ? `<img src="${info.thumbnail}" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />` 
+                : `<div class="w-full h-full bg-surface-container-high flex flex-col items-center justify-center text-on-surface-variant"><span class="material-symbols-outlined">audiotrack</span></div>`;
+
             el.innerHTML = `
-                ${info.thumbnail ? `<img src="${info.thumbnail}" class="thumbnail source-thumb" />` : `<div class="thumbnail source-thumb"></div>`}
-                <div class="media-info source-info" style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis;">
-                    <div class="media-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${id}">${id}</div>
-                    <div class="media-meta">${meta}</div>
+                <div class="aspect-video relative">
+                    ${thumbHtml}
+                    <span class="absolute bottom-1 right-1 bg-black/70 text-[10px] px-1.5 py-0.5 rounded mono text-white">${meta}</span>
                 </div>
-                <div class="source-card-actions" style="display: flex; gap: 4px; padding-right: 8px;">
-                    <button class="btn btn-sm btn-icon btn-add-clip" data-id="${id}" title="Add to Timeline">+</button>
-                    <button class="btn btn-sm btn-icon btn-trim-add" data-id="${id}" title="Trim + Add Segment">✂</button>
-                    <button class="btn btn-sm btn-icon btn-delete-source" style="color: var(--color-accent)" data-id="${id}" title="Delete Source">&times;</button>
+                <div class="p-2">
+                    <p class="text-[11px] font-medium truncate text-on-surface-variant group-hover:text-primary">${id}</p>
+                </div>
+                <div class="absolute inset-x-0 bottom-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-1 bg-gradient-to-t from-black/80 to-transparent">
+                    <button class="btn-trim-add p-1 text-on-surface-variant hover:text-primary bg-surface-container-high rounded shadow-sm" data-id="${id}" title="Trim"><span class="material-symbols-outlined text-sm" style="font-size: 14px;">content_cut</span></button>
+                    <button class="btn-add-clip p-1 bg-primary text-on-primary rounded font-bold hover:bg-primary-container shadow-sm" data-id="${id}" title="Add to Timeline"><span class="material-symbols-outlined text-sm" style="font-size: 14px;">add</span></button>
+                    <button class="btn-delete-source p-1 bg-red-500/20 text-red-500 rounded shadow-sm" data-id="${id}" title="Delete"><span class="material-symbols-outlined text-sm" style="font-size: 14px;">delete</span></button>
                 </div>
             `;
+            el.addEventListener('dragstart', (event) => {
+                if (!event.dataTransfer) return;
+                event.dataTransfer.effectAllowed = 'copy';
+                event.dataTransfer.setData('application/x-graphcut-source-id', id);
+                event.dataTransfer.setData('text/plain', `graphcut-source:${id}`);
+                el.classList.add('opacity-60', 'scale-[0.98]');
+                this.app.setStatus(`Drop ${id} into the timeline to add a clip`, 1800);
+            });
+            el.addEventListener('dragend', () => {
+                el.classList.remove('opacity-60', 'scale-[0.98]');
+            });
             el.querySelector('.btn-add-clip').addEventListener('click', async () => {
                 await this.app.api.addClip(id);
                 this.app.refreshState();

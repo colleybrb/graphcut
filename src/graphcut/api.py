@@ -1,16 +1,23 @@
 """REST API endpoints for the GraphCut underlying FFmpeg and project state logic."""
 
+import mimetypes
 import logging
+import re
+import shutil
 import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import unquote, urlparse
+from urllib.request import Request as UrlRequest, urlopen
 
 import anyio
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi import UploadFile, File
 from pydantic import BaseModel
 
 from graphcut.models import (
@@ -18,6 +25,7 @@ from graphcut.models import (
     ClipRef,
     AudioMix,
     WebcamOverlay,
+    StickerOverlay,
     CaptionStyle,
     ExportPreset,
     SceneConfig,
@@ -30,6 +38,13 @@ from graphcut.exporter import Exporter
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["GraphCut"])
+REMOTE_IMPORT_MAX_BYTES = 250 * 1024 * 1024
+REMOTE_IMPORT_ALLOWED_TYPES = ("video/", "audio/", "image/")
+REMOTE_IMPORT_ALLOWED_SUFFIXES = {
+    ".mp4", ".mov", ".m4v", ".webm", ".mkv",
+    ".mp3", ".wav", ".aac", ".m4a", ".ogg",
+    ".gif", ".png", ".jpg", ".jpeg", ".webp",
+}
 
 
 # Background job task tracker
@@ -90,6 +105,61 @@ def save_manifest(manifest: ProjectManifest, request: Request):
     """Save changes explicitly out to YML disk bounds."""
     ProjectManager.save_project(manifest, request.app.state.project_dir)
 
+
+def _sanitize_media_filename(raw_name: str, fallback_stem: str = "imported_media") -> str:
+    candidate = unquote(Path(raw_name or "").name).strip()
+    stem = Path(candidate).stem or fallback_stem
+    suffix = Path(candidate).suffix
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._") or fallback_stem
+    safe_name = f"{stem}{suffix}"
+    return safe_name[:160]
+
+
+def _unique_media_path(directory: Path, filename: str) -> Path:
+    base = Path(filename)
+    stem = base.stem or "imported_media"
+    suffix = base.suffix
+    candidate = directory / filename
+    counter = 1
+    while candidate.exists():
+        candidate = directory / f"{stem}_{counter}{suffix}"
+        counter += 1
+    return candidate
+
+
+def _build_remote_filename(raw_name: str, content_type: str, url: str) -> str:
+    parsed_path = Path(urlparse(url).path)
+    guessed_suffix = Path(raw_name).suffix or parsed_path.suffix or mimetypes.guess_extension(content_type) or ".bin"
+    safe_name = _sanitize_media_filename(raw_name or parsed_path.name or "imported_media")
+    if Path(safe_name).suffix:
+        return safe_name
+    return f"{safe_name}{guessed_suffix}"
+
+
+def _validate_sticker_overlay(overlay: StickerOverlay, manifest: ProjectManifest) -> StickerOverlay:
+    if overlay.start_time < 0:
+        raise HTTPException(400, "Sticker start_time must be >= 0.")
+    if overlay.end_time is not None and overlay.end_time <= overlay.start_time:
+        raise HTTPException(400, "Sticker end_time must be greater than start_time.")
+    if overlay.scale <= 0:
+        raise HTTPException(400, "Sticker scale must be greater than 0.")
+    if overlay.opacity <= 0 or overlay.opacity > 1:
+        raise HTTPException(400, "Sticker opacity must be between 0 and 1.")
+
+    if overlay.mode == "emoji":
+        if not (overlay.text or "").strip():
+            raise HTTPException(400, "Enter an emoji or short text for the sticker overlay.")
+        return overlay
+
+    if not overlay.source_id:
+        raise HTTPException(400, "Choose a source asset for the sticker overlay.")
+    if overlay.source_id not in manifest.sources:
+        raise HTTPException(404, "Sticker source not found.")
+    info = manifest.sources[overlay.source_id]
+    if info.media_type not in ("video", "image"):
+        raise HTTPException(400, "Sticker source must be a video, GIF, or image asset.")
+    return overlay
+
 # ----------------- #
 #   Project Admin   #
 # ----------------- #
@@ -128,9 +198,6 @@ def list_sources(request: Request):
         res[sid]["thumbnail"] = f"/api/sources/{sid}/thumbnail" if sid in thumb_paths else None
     return res
 
-from fastapi import UploadFile, File
-import shutil
-
 @router.post("/sources/upload")
 async def upload_source(request: Request, file: UploadFile = File(...)):
     manifest = get_manifest(request)
@@ -147,6 +214,90 @@ async def upload_source(request: Request, file: UploadFile = File(...)):
     ProjectManager.add_source(manifest, dest_path)
     save_manifest(manifest, request)
     return {"status": "ok", "filename": safe_name}
+
+
+class ImportSourceUrlReq(BaseModel):
+    url: str
+    source_id: str | None = None
+
+
+@router.post("/sources/import-url")
+def import_source_url(req: ImportSourceUrlReq, request: Request):
+    manifest = get_manifest(request)
+    pdir = request.app.state.project_dir
+    media_dir = pdir / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+
+    url = (req.url or "").strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(400, "Paste a direct http(s) media URL.")
+
+    source_hint = (req.source_id or "").strip() or None
+    dest_path: Path | None = None
+
+    try:
+        remote_req = UrlRequest(url, headers={"User-Agent": "GraphCut/1.0"})
+        with urlopen(remote_req, timeout=20) as response:
+            content_type = (response.headers.get_content_type() or "application/octet-stream").lower()
+            looks_like_media = (
+                any(parsed.path.lower().endswith(suffix) for suffix in REMOTE_IMPORT_ALLOWED_SUFFIXES)
+                or content_type.startswith(REMOTE_IMPORT_ALLOWED_TYPES)
+                or content_type == "application/octet-stream"
+            )
+            if not looks_like_media or content_type == "text/html":
+                raise HTTPException(
+                    400,
+                    "That URL does not look like a direct media file. Paste a direct GIF, image, audio, or video asset URL.",
+                )
+
+            safe_name = _build_remote_filename(
+                response.headers.get_filename() or Path(parsed.path).name or f"imported_{uuid.uuid4().hex[:8]}",
+                content_type,
+                url,
+            )
+            dest_path = _unique_media_path(media_dir, safe_name)
+
+            bytes_written = 0
+            with dest_path.open("wb") as handle:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    bytes_written += len(chunk)
+                    if bytes_written > REMOTE_IMPORT_MAX_BYTES:
+                        raise HTTPException(413, "Remote media is too large. Keep imports under 250 MB.")
+                    handle.write(chunk)
+    except HTTPException:
+        if dest_path:
+            dest_path.unlink(missing_ok=True)
+        raise
+    except HTTPError as exc:
+        if dest_path:
+            dest_path.unlink(missing_ok=True)
+        raise HTTPException(502, f"Remote server returned {exc.code} while downloading media.") from exc
+    except URLError as exc:
+        if dest_path:
+            dest_path.unlink(missing_ok=True)
+        raise HTTPException(502, f"Could not reach the remote media URL: {exc.reason}") from exc
+    except Exception as exc:
+        if dest_path:
+            dest_path.unlink(missing_ok=True)
+        raise HTTPException(500, f"Failed to import remote media: {exc}") from exc
+
+    try:
+        source_id = ProjectManager.add_source(manifest, dest_path, source_id=source_hint)
+    except Exception as exc:
+        dest_path.unlink(missing_ok=True)
+        raise HTTPException(400, f"Downloaded file could not be added as media: {exc}") from exc
+
+    save_manifest(manifest, request)
+    return {
+        "status": "ok",
+        "filename": dest_path.name,
+        "source_id": source_id,
+        "media_type": manifest.sources[source_id].media_type,
+    }
 
 @router.delete("/sources/{source_id}")
 def delete_source(source_id: str, request: Request, delete_file: bool = False):
@@ -190,11 +341,7 @@ def source_media(source_id: str, request: Request):
     if not path.is_relative_to(pdir):
         raise HTTPException(403, "Media file is outside the active project directory")
 
-    mt = "application/octet-stream"
-    if manifest.sources[source_id].media_type == "video":
-        mt = "video/mp4"
-    elif manifest.sources[source_id].media_type == "audio":
-        mt = "audio/mpeg"
+    mt = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
     return FileResponse(path, media_type=mt, filename=path.name)
 
@@ -450,7 +597,7 @@ def update_audio(mix: AudioMix, request: Request):
 @router.get("/overlays")
 def get_overlays(request: Request):
     m = get_manifest(request)
-    return {"webcam": m.webcam, "caption_style": m.caption_style}
+    return {"webcam": m.webcam, "sticker": m.sticker, "caption_style": m.caption_style}
 
 @router.put("/overlays/webcam")
 def set_webcam(overlay: WebcamOverlay, request: Request):
@@ -463,6 +610,22 @@ def set_webcam(overlay: WebcamOverlay, request: Request):
 def delete_webcam(request: Request):
     m = get_manifest(request)
     m.webcam = None
+    save_manifest(m, request)
+    return {"status": "ok"}
+
+
+@router.put("/overlays/sticker")
+def set_sticker(overlay: StickerOverlay, request: Request):
+    m = get_manifest(request)
+    m.sticker = _validate_sticker_overlay(overlay, m)
+    save_manifest(m, request)
+    return {"status": "ok"}
+
+
+@router.delete("/overlays/sticker")
+def delete_sticker(request: Request):
+    m = get_manifest(request)
+    m.sticker = None
     save_manifest(m, request)
     return {"status": "ok"}
 
@@ -508,6 +671,7 @@ def save_scene(req: SceneNameReq, request: Request):
 
     m.scenes[name] = SceneConfig(
         webcam=m.webcam,
+        sticker=m.sticker,
         audio_mix=m.audio_mix,
         caption_style=m.caption_style,
         narration=m.narration,
@@ -529,6 +693,7 @@ def activate_scene(req: SceneNameReq, request: Request):
     sc = m.scenes[name]
     m.active_scene = name
     m.webcam = sc.webcam
+    m.sticker = sc.sticker
     m.audio_mix = sc.audio_mix
     m.caption_style = sc.caption_style
     m.narration = sc.narration
