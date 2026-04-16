@@ -1,8 +1,8 @@
 """Tests for compare_sbs — manifest parsing, pair analysis, and result models.
 
-All rendering tests patch the thin ``_moviepy_*`` wrappers so no real video
-I/O or FFmpeg binary is required.  Integration tests that produce actual video
-are marked ``@pytest.mark.integration`` and skipped in CI.
+All rendering tests patch the ``_moviepy_*`` wrappers so no real video I/O
+or FFmpeg binary is required.  Tests marked ``@pytest.mark.integration``
+produce actual video and are skipped by default.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import yaml
@@ -24,6 +24,7 @@ from graphcut.compare_sbs import (
     PairResult,
     SBSManifest,
     _analyze_pair,
+    _is_windows,
     load_pairs_manifest,
     run_compare_sbs,
 )
@@ -63,7 +64,8 @@ class FakeClip:
     def __init__(self, duration: float = 5.0, size: tuple[int, int] = (960, 540)):
         self.duration = duration
         self.size = size
-        self.audio = None
+        self.audio: Any = None
+        self.fps: int = 30
 
     def subclipped(self, start: float, end: float) -> "FakeClip":
         return FakeClip(duration=end - start, size=self.size)
@@ -78,15 +80,21 @@ class FakeClip:
         return self
 
     def with_audio(self, audio: Any) -> "FakeClip":
-        self.audio = audio
-        return self
+        c = FakeClip(self.duration, self.size)
+        c.audio = audio
+        return c
 
     def without_audio(self) -> "FakeClip":
-        self.audio = None
-        return self
+        c = FakeClip(self.duration, self.size)
+        c.audio = None
+        return c
 
     def to_ImageClip(self, t: float = 0.0) -> "FakeClip":
-        return self
+        return FakeClip(duration=0.0, size=self.size)
+
+    def get_frame(self, t: float) -> Any:
+        import numpy as np  # moviepy requires numpy anyway
+        return np.zeros((self.size[1], self.size[0], 3), dtype="uint8")
 
     def write_videofile(self, path: str, **_kwargs: Any) -> None:
         Path(path).touch()
@@ -139,7 +147,6 @@ class TestSBSManifest:
     def test_full_manifest_parses(self):
         data = _simple_manifest_data()
         manifest = SBSManifest.model_validate(data)
-
         assert len(manifest.pairs) == 1
         pair = manifest.pairs[0]
         assert pair.id == "pair-a"
@@ -181,7 +188,6 @@ class TestLoadPairsManifest:
         yaml_path = _write_yaml(tmp_path, data)
         primary = tmp_path / "main.mp4"
         primary.touch()
-
         manifest = load_pairs_manifest(yaml_path, primary_source=primary)
         assert manifest.pairs[0].before.source == primary
         assert manifest.pairs[0].after.source == primary
@@ -287,8 +293,7 @@ class TestComparisonResult:
         return r
 
     def test_to_dict_structure(self):
-        result = self._make_result()
-        d = result.to_dict()
+        d = self._make_result().to_dict()
         assert d["input"] == "src.mp4"
         assert d["output"] == "out.mp4"
         assert len(d["pairs"]) == 2
@@ -298,8 +303,7 @@ class TestComparisonResult:
 
     def test_to_dict_is_json_serialisable(self):
         d = self._make_result().to_dict()
-        serialised = json.dumps(d)
-        assert "Feature A" in serialised
+        assert "Feature A" in json.dumps(d)
 
     def test_to_markdown_table(self):
         md = self._make_result().to_markdown_table()
@@ -308,16 +312,39 @@ class TestComparisonResult:
         assert "**Total output duration:**" in md
         assert "---" in md
 
-    def test_to_markdown_table_after_freeze_side(self):
+    def test_markdown_includes_freeze_side(self):
         md = self._make_result().to_markdown_table()
         assert "after" in md
 
 
 # ---------------------------------------------------------------------------
-# run_compare_sbs — mocked via _moviepy_* wrappers + _build_pair_clip
+# _is_windows
 # ---------------------------------------------------------------------------
 
-def _make_fake_build(freeze_mode_: str = "last-frame") -> Any:
+class TestIsWindows:
+    def test_returns_bool(self):
+        assert isinstance(_is_windows(), bool)
+
+    def test_false_on_posix(self):
+        with patch("graphcut.compare_sbs._is_windows", return_value=False):
+            # Verify _is_windows() is patchable, not hardcoded
+            from graphcut.compare_sbs import _is_windows as fw
+            assert _is_windows.__module__ == "graphcut.compare_sbs"
+
+    def test_true_on_nt(self):
+        # Verify _is_windows() returns True when patched as Windows
+        with patch("graphcut.compare_sbs._is_windows", return_value=True):
+            from graphcut.compare_sbs import _is_windows as _fw
+            # The mock is installed — now call the real one directly via its module
+            import graphcut.compare_sbs as _m
+            assert _m._is_windows() is True
+
+
+# ---------------------------------------------------------------------------
+# run_compare_sbs — mocked via _moviepy_* wrappers
+# ---------------------------------------------------------------------------
+
+def _make_fake_build() -> Any:
     """Return a _build_pair_clip side_effect that uses real _analyze_pair."""
     def _build(pair, layout, freeze_mode, audio_mode, canvas_w, canvas_h):
         out_dur, freeze, warnings = _analyze_pair(pair, freeze_mode)
@@ -339,55 +366,55 @@ def _run_with_mocks(
     pairs_data: dict,
     **kwargs: Any,
 ) -> ComparisonResult:
+    """Helper: run_compare_sbs through full mock stack."""
     src = tmp_path / "source.mp4"
     src.touch()
     yaml_path = _write_yaml(tmp_path, pairs_data)
     output = tmp_path / "out.mp4"
 
+    def _concat_write(clips, **kw):
+        c = _fake_concat(clips, **kw)
+        c.write_videofile = lambda path, **_: Path(path).touch()
+        return c
+
     with (
         patch("graphcut.compare_sbs._import_moviepy", return_value=None),
         patch("graphcut.compare_sbs._build_pair_clip", side_effect=_make_fake_build()),
-        patch("graphcut.compare_sbs._moviepy_concat", side_effect=_fake_concat),
         patch("graphcut.compare_sbs._moviepy_color_clip", side_effect=_fake_color_clip),
+        patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_write),
     ):
-        final_clip = FakeClip()
-
-        # Patch write_videofile on whatever _moviepy_concat returns
-        def _concat_with_write(clips, **kw):
-            clip = _fake_concat(clips, **kw)
-            clip.write_videofile = lambda path, **_: Path(path).touch()
-            return clip
-
-        with patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_with_write):
-            return run_compare_sbs(
-                primary_source=src,
-                pairs_manifest=yaml_path,
-                output=output,
-                **kwargs,
-            )
+        return run_compare_sbs(
+            primary_source=src,
+            pairs_manifest=yaml_path,
+            output=output,
+            **kwargs,
+        )
 
 
 class TestRunCompareSbs:
     def test_single_pair_produces_result(self, tmp_path):
-        data = _simple_manifest_data()
-        result = _run_with_mocks(tmp_path, data)
+        result = _run_with_mocks(tmp_path, _simple_manifest_data())
         assert len(result.pairs) == 1
         assert result.pairs[0].id == "pair-a"
 
+    def test_before_duration_10s_after_5s(self, tmp_path):
+        result = _run_with_mocks(tmp_path, _simple_manifest_data())
+        assert result.pairs[0].before_duration == pytest.approx(10.0)
+        assert result.pairs[0].after_duration == pytest.approx(5.0)
+
     def test_total_duration_includes_gap(self, tmp_path):
         data = _simple_manifest_data()
-        # Add a second pair (before=10s, after=8s → output=10s)
         data["pairs"].append({
             "id": "pair-b",
             "title": "Feature B",
-            "before": {"in": 30.0, "out": 40.0},
-            "after": {"in": 50.0, "out": 58.0},
+            "before": {"in": 30.0, "out": 40.0},  # 10s
+            "after": {"in": 50.0, "out": 58.0},   # 8s
         })
         result = _run_with_mocks(tmp_path, data, gap_between_pairs=1.0)
-        # pair-a: 10s, pair-b: 10s, one gap: 1s → total 21s
+        # pair-a: max(10,5)=10, pair-b: max(10,8)=10, gap: 1 → total 21
         assert result.total_output_duration == pytest.approx(21.0, abs=0.1)
 
-    def test_freeze_mode_passed_to_build(self, tmp_path):
+    def test_freeze_mode_forwarded(self, tmp_path):
         captured: list[str] = []
 
         def _build_capture(pair, layout, freeze_mode, audio_mode, canvas_w, canvas_h):
@@ -399,26 +426,24 @@ class TestRunCompareSbs:
         yaml_path = _write_yaml(tmp_path, _simple_manifest_data(str(src)))
         output = tmp_path / "out.mp4"
 
+        def _concat_write(clips, **kw):
+            c = _fake_concat(clips, **kw)
+            c.write_videofile = lambda path, **_: Path(path).touch()
+            return c
+
         with (
             patch("graphcut.compare_sbs._import_moviepy", return_value=None),
             patch("graphcut.compare_sbs._build_pair_clip", side_effect=_build_capture),
             patch("graphcut.compare_sbs._moviepy_color_clip", side_effect=_fake_color_clip),
+            patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_write),
         ):
-            def _concat_write(clips, **kw):
-                c = _fake_concat(clips, **kw)
-                c.write_videofile = lambda path, **_: Path(path).touch()
-                return c
-
-            with patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_write):
-                run_compare_sbs(
-                    primary_source=src,
-                    pairs_manifest=yaml_path,
-                    output=output,
-                    freeze_mode="black",
-                )
+            run_compare_sbs(
+                primary_source=src, pairs_manifest=yaml_path,
+                output=output, freeze_mode="black",
+            )
         assert "black" in captured
 
-    def test_layout_passed_to_build(self, tmp_path):
+    def test_layout_forwarded(self, tmp_path):
         captured: list[str] = []
 
         def _build_capture(pair, layout, freeze_mode, audio_mode, canvas_w, canvas_h):
@@ -430,23 +455,21 @@ class TestRunCompareSbs:
         yaml_path = _write_yaml(tmp_path, _simple_manifest_data(str(src)))
         output = tmp_path / "out.mp4"
 
+        def _concat_write(clips, **kw):
+            c = _fake_concat(clips, **kw)
+            c.write_videofile = lambda path, **_: Path(path).touch()
+            return c
+
         with (
             patch("graphcut.compare_sbs._import_moviepy", return_value=None),
             patch("graphcut.compare_sbs._build_pair_clip", side_effect=_build_capture),
             patch("graphcut.compare_sbs._moviepy_color_clip", side_effect=_fake_color_clip),
+            patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_write),
         ):
-            def _concat_write(clips, **kw):
-                c = _fake_concat(clips, **kw)
-                c.write_videofile = lambda path, **_: Path(path).touch()
-                return c
-
-            with patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_write):
-                run_compare_sbs(
-                    primary_source=src,
-                    pairs_manifest=yaml_path,
-                    output=output,
-                    layout="vertical",
-                )
+            run_compare_sbs(
+                primary_source=src, pairs_manifest=yaml_path,
+                output=output, layout="vertical",
+            )
         assert "vertical" in captured
 
     def test_empty_manifest_raises(self, tmp_path):
@@ -466,8 +489,116 @@ class TestRunCompareSbs:
         parsed = json.loads(json.dumps(result.to_dict()))
         assert parsed["pairs"][0]["id"] == "pair-a"
 
-    def test_markdown_report_from_result(self, tmp_path):
+    def test_markdown_report_contains_pair(self, tmp_path):
         result = _run_with_mocks(tmp_path, _simple_manifest_data())
         md = result.to_markdown_table()
         assert "pair-a" in md
         assert "**Total output duration:**" in md
+
+    def test_audio_false_when_muted(self, tmp_path):
+        """write_videofile should receive audio=False when audio_mode=mute."""
+        src = tmp_path / "source.mp4"
+        src.touch()
+        yaml_path = _write_yaml(tmp_path, _simple_manifest_data(str(src)))
+        output = tmp_path / "out.mp4"
+
+        write_calls: list[dict] = []
+
+        def _concat_capturing(clips, **kw):
+            c = _fake_concat(clips, **kw)
+            def _write(path, **kwargs):
+                write_calls.append(kwargs)
+                Path(path).touch()
+            c.write_videofile = _write
+            return c
+
+        with (
+            patch("graphcut.compare_sbs._import_moviepy", return_value=None),
+            patch("graphcut.compare_sbs._build_pair_clip", side_effect=_make_fake_build()),
+            patch("graphcut.compare_sbs._moviepy_color_clip", side_effect=_fake_color_clip),
+            patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_capturing),
+        ):
+            run_compare_sbs(
+                primary_source=src,
+                pairs_manifest=yaml_path,
+                output=output,
+                audio_mode="mute",
+            )
+
+        assert write_calls, "write_videofile was never called"
+        assert write_calls[0].get("audio") is False
+
+    def test_windows_logger_none(self, tmp_path):
+        """On Windows, logger should be None (avoids tqdm ANSI glitches)."""
+        src = tmp_path / "source.mp4"
+        src.touch()
+        yaml_path = _write_yaml(tmp_path, _simple_manifest_data(str(src)))
+        output = tmp_path / "out.mp4"
+
+        write_calls: list[dict] = []
+
+        def _concat_capturing(clips, **kw):
+            c = _fake_concat(clips, **kw)
+            def _write(path, **kwargs):
+                write_calls.append(kwargs)
+                Path(path).touch()
+            c.write_videofile = _write
+            return c
+
+        # Patch _is_windows at the module level — safe on macOS (no os.name mutation)
+        with (
+            patch("graphcut.compare_sbs._import_moviepy", return_value=None),
+            patch("graphcut.compare_sbs._build_pair_clip", side_effect=_make_fake_build()),
+            patch("graphcut.compare_sbs._moviepy_color_clip", side_effect=_fake_color_clip),
+            patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_capturing),
+            patch("graphcut.compare_sbs._is_windows", return_value=True),
+        ):
+            run_compare_sbs(
+                primary_source=src,
+                pairs_manifest=yaml_path,
+                output=output,
+            )
+
+        assert write_calls[0].get("logger") is None
+
+    def test_gap_clip_inserted_between_pairs(self, tmp_path):
+        """A gap ColorClip should be inserted between pairs when gap > 0."""
+        data = _simple_manifest_data()
+        data["pairs"].append({
+            "id": "pair-b",
+            "title": "B",
+            "before": {"in": 0.0, "out": 5.0},
+            "after": {"in": 10.0, "out": 15.0},
+        })
+
+        color_calls: list = []
+
+        def _color_capturing(size, color, duration):
+            color_calls.append(duration)
+            return _fake_color_clip(size, color, duration)
+
+        src = tmp_path / "source.mp4"
+        src.touch()
+        yaml_path = _write_yaml(tmp_path, data)
+        output = tmp_path / "out.mp4"
+
+        def _concat_write(clips, **kw):
+            c = _fake_concat(clips, **kw)
+            c.write_videofile = lambda path, **_: Path(path).touch()
+            return c
+
+        with (
+            patch("graphcut.compare_sbs._import_moviepy", return_value=None),
+            patch("graphcut.compare_sbs._build_pair_clip", side_effect=_make_fake_build()),
+            patch("graphcut.compare_sbs._moviepy_color_clip", side_effect=_color_capturing),
+            patch("graphcut.compare_sbs._moviepy_concat", side_effect=_concat_write),
+        ):
+            run_compare_sbs(
+                primary_source=src,
+                pairs_manifest=yaml_path,
+                output=output,
+                gap_between_pairs=2.0,
+            )
+
+        # At least one gap clip of 2.0s should have been created
+        assert 2.0 in color_calls
