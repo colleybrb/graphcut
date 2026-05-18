@@ -27,12 +27,12 @@ dependencies = [
 
 [project.optional-dependencies]
 transcription = ["faster-whisper>=1.0"]
-scene = ["scenedetect[opencv]>=0.6.7"]
+scene = ["scenedetect[opencv]>=0.6.7.1"]
 audio = ["ffmpeg-normalize>=1.27"]
 dev = ["pytest>=7.0", "pytest-asyncio"]
 all = [
     "faster-whisper>=1.0",
-    "scenedetect[opencv]>=0.6.7",
+    "scenedetect[opencv]>=0.6.7.1",
     "ffmpeg-normalize>=1.27",
     "pytest>=7.0",
     "pytest-asyncio",
